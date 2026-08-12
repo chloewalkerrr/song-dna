@@ -1,10 +1,11 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 
 function App() {
   const [features, setFeatures] = useState(null);
   const [loading, setLoading] = useState(false);
   const audioRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
 
   function togglePlay() {
     if (!audioRef.current) return;
@@ -15,6 +16,18 @@ function App() {
     }
     setIsPlaying(!isPlaying);
   }
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    function handleTimeUpdate() {
+      setCurrentTime(audio.currentTime);
+    }
+
+    audio.addEventListener("timeupdate", handleTimeUpdate);
+    return () => audio.removeEventListener("timeupdate", handleTimeUpdate);
+  }, [features]);
 
   async function handleFileChange(event) {
     const file = event.target.files[0];
@@ -84,7 +97,7 @@ function App() {
             </p>
 
             <audio ref={audioRef} src={features.audio_url} />
-            <button onClick={togglePlay} style={{ marginTop: 12, marginBottom:12 }}>
+            <button onClick={togglePlay} style={{ marginTop: 12, marginBottom: 12 }}>
               {isPlaying ? "Pause" : "Play"}
             </button>
 
@@ -98,6 +111,14 @@ function App() {
             >
               <svg width={width} height={height} style={{ display: "block" }}>
                 <line x1="0" y1={height / 2} x2={width} y2={height / 2} stroke="#e6e6e6" strokeWidth="1" />
+                <line
+                  x1={(currentTime / features.duration_seconds) * width}
+                  y1={0}
+                  x2={(currentTime / features.duration_seconds) * width}
+                  y2={height}
+                  stroke="#0a0a0a"
+                  strokeWidth="1"
+                />
                 <path
                   d={buildPath(features.rms_energy, width, height)}
                   fill="none"
