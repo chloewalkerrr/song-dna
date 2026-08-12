@@ -1,8 +1,20 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 
 function App() {
   const [features, setFeatures] = useState(null);
   const [loading, setLoading] = useState(false);
+  const audioRef = useRef(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  function togglePlay() {
+    if (!audioRef.current) return;
+    if (isPlaying) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play();
+    }
+    setIsPlaying(!isPlaying);
+  }
 
   async function handleFileChange(event) {
     const file = event.target.files[0];
@@ -70,6 +82,11 @@ function App() {
             <p style={{ fontFamily: "monospace", fontSize: 12, color: "#6b6b6b", marginBottom: 12 }}>
               {features.file_path} — {features.duration_seconds.toFixed(1)}s
             </p>
+
+            <audio ref={audioRef} src={features.audio_url} />
+            <button onClick={togglePlay} style={{ marginTop: 12, marginBottom:12 }}>
+              {isPlaying ? "Pause" : "Play"}
+            </button>
 
             <div
               style={{
