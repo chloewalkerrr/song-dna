@@ -16,6 +16,12 @@ print(f"\nType of 'rms_energy': {type(rms_energy)}")
 print(f"Shape of 'rms_energy': {rms_energy.shape}")
 print(f"First 10 RMS values: {rms_energy[0][:10]}")
 
+spectral_centroid = librosa.feature.spectral_centroid(y=waveform, sr=sample_rate)
+
+print(f"\nType of 'spectral_centroid': {type(spectral_centroid)}")
+print(f"Shape of 'spectral_centroid': {spectral_centroid.shape}")
+print(f"First 10 spectral centroid values: {spectral_centroid[0][:10]}")
+
 # convert frame indices to actual time in seconds (x-axis)
 times = librosa.frames_to_time(range(len(rms_energy[0])), sr = sample_rate)
 
@@ -24,5 +30,13 @@ plt.plot(times, rms_energy[0])
 plt.xlabel("Time (s)")
 plt.ylabel("RMS Energy")
 plt.title("RMS Energy Over Time - River Went Dry")
+plt.tight_layout()
+plt.show()
+
+plt.figure(figsize=(12, 4))
+plt.plot(times, spectral_centroid[0])
+plt.xlabel("Time (s)")
+plt.ylabel("Spectral Centroid (Hz)")
+plt.title("Spectral Centroid Over Time - River Went Dry")
 plt.tight_layout()
 plt.show()
