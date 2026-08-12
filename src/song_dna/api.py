@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi import FastAPI, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from src.song_dna.features import extract_features
+from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
 
@@ -16,6 +17,7 @@ app.add_middleware(
 
 UPLOAD_DIR = Path("data/audio")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/audio", StaticFiles(directory=UPLOAD_DIR), name="audio")
 
 @app.post("/analyze")
 def analyze(file: UploadFile):
@@ -28,6 +30,7 @@ def analyze(file: UploadFile):
 
     return {
         "file_path": result.file_path,
+        "audio_url": f"http://127.0.0.1:8000/audio/{destination.name}",
         "sample_rate": result.sample_rate,
         "duration_seconds": result.duration_seconds,
         "times": result.times.tolist(),
