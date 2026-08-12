@@ -76,6 +76,13 @@ These are candidates rather than requirements for the first version.
 
 Each feature should be understood before it is added.
 
+## Implemented features (milestone 1, in progress)
+
+- **RMS energy** — computed per ~25ms frame via `librosa.feature.rms`. Measures loudness at each moment; used to drive the fingerprint's height/intensity dimension. Cannot be negative by construction (square → mean → root).
+- **Spectral centroid** — computed per frame via `librosa.feature.spectral_centroid`. Measures the "brightness" of the sound (weighted average frequency present); independent of loudness — a quiet moment can be bright, a loud moment can be bass-heavy. Intended to drive the fingerprint's texture/color dimension.
+
+Both features are frame-aligned (same length, same `times` array) and stored together in the `AudioFeatures` dataclass (`src/song_dna/features.py`), produced by `extract_features()`.
+
 ## Song sourcing
 
 Songs come from two sources:
