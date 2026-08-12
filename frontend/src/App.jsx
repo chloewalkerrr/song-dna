@@ -57,6 +57,12 @@ function App() {
               stroke="#4fc3f7"
               strokeWidth="1.5"
             />
+            <path
+              d={buildPath(features.spectral_centroid, width, height)}
+              fill="none"
+              stroke="#f74fc3"
+              strokeWidth="1.5"
+            />
           </svg>
         </div>
       )}
