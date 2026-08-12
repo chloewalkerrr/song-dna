@@ -2,13 +2,20 @@ import shutil
 from pathlib import Path
 
 from fastapi import FastAPI, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from src.song_dna.features import extract_features
 
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 UPLOAD_DIR = Path("data/audio")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-
 
 @app.post("/analyze")
 def analyze(file: UploadFile):
