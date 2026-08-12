@@ -4,7 +4,7 @@
 
 Song DNA is an interactive application that analyses the hidden structure of songs and converts each song into a distinctive visual DNA fingerprint.
 
-Users will be able to upload songs, explore their musical structure and visually compare the DNA of two songs.
+Users will be able to select or upload songs, explore their musical structure and visually compare the DNA of two songs.
 
 The project should feel futuristic, visually striking and easy to explore. However, every part of the visual fingerprint should correspond to a real audio measurement rather than being an arbitrary animation.
 
@@ -28,12 +28,12 @@ Two songs can then be placed beside each other to reveal:
 
 A user should eventually be able to:
 
-1. Upload one audio file.
+1. Select a song from a small local library, or upload a new one.
 2. Play and pause the song.
 3. View its visual DNA fingerprint.
-4. Move through the fingerprint alongside the song’s playback.
+4. Move through the fingerprint alongside the song's playback.
 5. View the audio measurements used to create the fingerprint.
-6. Upload a second song.
+6. Select or upload a second song.
 7. Compare the two fingerprints.
 8. View meaningful similarities and differences between them.
 
@@ -76,6 +76,24 @@ These are candidates rather than requirements for the first version.
 
 Each feature should be understood before it is added.
 
+## Song sourcing
+
+Songs come from two sources:
+
+- A small, curated local library of legally-sourced audio (e.g. Creative Commons / royalty-free tracks from sources such as Free Music Archive, Jamendo, or ccMixter), assembled deliberately rather than scraped or streamed.
+- User-uploaded local audio files.
+
+Streaming service APIs (Spotify, Apple Music, etc.) are explicitly out of scope: their public APIs do not provide raw/analyzable audio for third-party use, and this was confirmed not to be a viable path. This decision should be revisited only if the underlying facts change.
+
+## Data & storage architecture
+
+The application uses local, file-based persistence only:
+
+- **SQLite** (a single local database file, no server process) stores song metadata — title, artist, file location, and whether/when it has been analysed.
+- Extracted audio features (time-series data) are stored separately, one file per song, on disk. The database stores a reference to this file rather than the raw numeric data itself.
+- This allows a song to be analysed once and reused across sessions without re-uploading or re-processing it.
+- No networked or cloud database, no ORM-managed multi-user schema, and no user accounts are required — this remains a single-user, local application.
+
 ## Song comparison
 
 The comparison experience could support:
@@ -85,7 +103,7 @@ The comparison experience could support:
 - Studio recording versus live performance
 - Songs from different genres
 - Songs that sound unexpectedly similar
-- Songs from different stages of an artist’s career
+- Songs from different stages of an artist's career
 
 The application should explain specific similarities and differences instead of relying only on one overall similarity score.
 
@@ -123,15 +141,25 @@ After the single-song fingerprint works, the next milestone can:
 - Highlight similar and different regions.
 - Produce a small number of evidence-based findings.
 
+## Candidate advanced techniques (second milestone and beyond)
+
+These are classical, explainable Music Information Retrieval techniques that could strengthen the comparison milestone. They are candidates for evaluation when we reach that stage, not commitments:
+
+- **Self-similarity matrix** — measuring how similar every moment of a song is to every other moment, to help automatically surface repeated sections.
+- **Novelty detection** on the self-similarity matrix — to help automatically detect structural transitions/boundaries.
+- **Dynamic Time Warping (DTW)** — to align two songs' timelines when their tempos or structures differ (e.g. studio vs. live).
+- **Classical unsupervised ML (k-means, PCA)** — to group song segments by measured characteristics, without hand-coded rules.
+
+Pretrained deep-learning audio embeddings are deliberately excluded: they would let two songs be called "similar" without an inspectable, explainable reason, which conflicts with this project's principle that every claim must be traceable to a measured feature.
+
 ## Initial scope boundaries
 
 The first version does not need:
 
 - User accounts
 - Authentication
-- A database
-- Spotify integration
-- Cloud infrastructure
+- Spotify or other streaming-service integration
+- Cloud infrastructure or hosted deployment (localhost only)
 - Mobile applications
 - Generative AI
 - Emotion detection
@@ -139,6 +167,8 @@ The first version does not need:
 - Perfect verse and chorus recognition
 - Full 3D environments
 - Automatic music-video generation
+
+Local SQLite storage and local feature-data files (see "Data & storage architecture") are explicitly in scope and are not considered "a database" in the sense originally excluded — that exclusion targeted networked/hosted database infrastructure, which remains out of scope.
 
 These features should not be added unless they are deliberately approved in a later phase.
 
@@ -156,6 +186,7 @@ The project should help develop knowledge of:
 - Frontend development
 - Testing numerical code
 - Full-stack integration
+- Basic relational data storage (SQLite)
 - Communicating mathematical findings clearly
 
 ## Development principles
@@ -184,3 +215,4 @@ Development work should follow:
 
 ```text
 feature/... → dev → main
+```
