@@ -1,14 +1,24 @@
-from fastapi import FastAPI
+import shutil
+from pathlib import Path
+
+from fastapi import FastAPI, UploadFile
 from src.song_dna.features import extract_features
 
 app = FastAPI()
 
-TEST_FILE = "data/audio/JoshWoodward-NQC-11-RiverWentDry.mp3"
+UPLOAD_DIR = Path("data/audio")
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
-@app.get("/analyze")
-def analyze():
-    result = extract_features(TEST_FILE)
+@app.post("/analyze")
+def analyze(file: UploadFile):
+    destination = UPLOAD_DIR / file.filename
+
+    with destination.open("wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    result = extract_features(str(destination))
+
     return {
         "file_path": result.file_path,
         "sample_rate": result.sample_rate,
