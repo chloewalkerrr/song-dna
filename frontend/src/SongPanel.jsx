@@ -4,6 +4,7 @@ import Fingerprint from "./Fingerprint";
 function SongPanel({ label, rmsMax, centroidMax, onFeaturesChange }) {
   const [features, setFeatures] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const audioRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -35,19 +36,35 @@ function SongPanel({ label, rmsMax, centroidMax, onFeaturesChange }) {
     if (!file) return;
 
     setLoading(true);
+    setError(null);
 
     const formData = new FormData();
     formData.append("file", file);
 
-    const response = await fetch("http://127.0.0.1:8000/analyze", {
-      method: "POST",
-      body: formData,
-    });
+    try {
+      const response = await fetch("http://127.0.0.1:8000/analyze", {
+        method: "POST",
+        body: formData,
+      });
 
-    const data = await response.json();
-    setFeatures(data);
-    onFeaturesChange(data);
-    setLoading(false);
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null);
+        setFeatures(null);
+        onFeaturesChange(null);
+        setError(errorBody?.detail || "Couldn't analyze this file — try a different one.");
+        return;
+      }
+
+      const data = await response.json();
+      setFeatures(data);
+      onFeaturesChange(data);
+    } catch {
+      setFeatures(null);
+      onFeaturesChange(null);
+      setError("Couldn't analyze this file — try a different one.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -58,6 +75,12 @@ function SongPanel({ label, rmsMax, centroidMax, onFeaturesChange }) {
       {loading && (
         <p style={{ fontFamily: "monospace", fontSize: 13, color: "#6b6b6b", marginTop: 16 }}>
           Analyzing...
+        </p>
+      )}
+
+      {error && (
+        <p style={{ fontFamily: "monospace", fontSize: 13, color: "#c0392b", marginTop: 16 }}>
+          {error}
         </p>
       )}
 
