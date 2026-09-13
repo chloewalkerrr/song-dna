@@ -1,5 +1,11 @@
 # Song DNA — Project Context
 
+## Current implementation
+
+Most of this document describes Song DNA's overall concept and long-term vision — much of it is aspirational rather than built. For what's actually running today, see [`README.md`](README.md), which is kept up to date with the real codebase.
+
+In short: the current app is a two-song comparison tool with a Python/FastAPI backend (RMS energy computed manually via numpy, spectral centroid via librosa) and a React/Vite frontend styled with Tailwind CSS and shadcn/ui, rendering each song as a segmented dual-strand bar visualization with a permanent dark theme. There is no database, no similarity scoring or automated findings, and no support for more than two songs yet.
+
 ## Project overview
 
 Song DNA is an interactive application that analyses the hidden structure of songs and converts each song into a distinctive visual DNA fingerprint.
@@ -78,7 +84,7 @@ Each feature should be understood before it is added.
 
 ## Implemented features (milestone 1, in progress)
 
-- **RMS energy** — computed per ~25ms frame via `librosa.feature.rms`. Measures loudness at each moment; used to drive the fingerprint's height/intensity dimension. Cannot be negative by construction (square → mean → root).
+- **RMS energy** — computed per ~25ms frame with a manual numpy implementation (`src/song_dna/rms.py`), not `librosa.feature.rms`. Measures loudness at each moment; used to drive the fingerprint's height/intensity dimension. Cannot be negative by construction (square → mean → root).
 - **Spectral centroid** — computed per frame via `librosa.feature.spectral_centroid`. Measures the "brightness" of the sound (weighted average frequency present); independent of loudness — a quiet moment can be bright, a loud moment can be bass-heavy. Intended to drive the fingerprint's texture/color dimension.
 
 Both features are frame-aligned (same length, same `times` array) and stored together in the `AudioFeatures` dataclass (`src/song_dna/features.py`), produced by `extract_features()`.
