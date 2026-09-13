@@ -1,4 +1,5 @@
 import shutil
+import uuid
 from pathlib import Path
 
 from fastapi import FastAPI, UploadFile
@@ -19,9 +20,19 @@ UPLOAD_DIR = Path("data/audio")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/audio", StaticFiles(directory=UPLOAD_DIR), name="audio")
 
+def generate_unique_filename(original_filename: str) -> str:
+    """
+    Build a unique filename that keeps the original file's extension,
+    so repeated uploads (even ones sharing a name) never overwrite an
+    earlier upload on disk.
+    """
+    extension = Path(original_filename).suffix
+    return f"{uuid.uuid4().hex}{extension}"
+
+
 @app.post("/analyze")
 def analyze(file: UploadFile):
-    destination = UPLOAD_DIR / file.filename
+    destination = UPLOAD_DIR / generate_unique_filename(file.filename)
 
     with destination.open("wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
