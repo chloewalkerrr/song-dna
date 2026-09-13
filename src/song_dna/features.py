@@ -2,6 +2,8 @@ from dataclasses import dataclass
 import numpy as np
 import librosa
 
+from src.song_dna.rms import compute_rms_energy
+
 @dataclass
 class AudioFeatures:
     """
@@ -27,7 +29,7 @@ def extract_features(file_path: str) -> AudioFeatures:
     """
     waveform, sample_rate = librosa.load(file_path)
 
-    rms_energy = librosa.feature.rms(y = waveform)[0]
+    rms_energy = compute_rms_energy(waveform)
     spectral_centroid = librosa.feature.spectral_centroid(y = waveform, sr = sample_rate)[0]
 
     times = librosa.frames_to_time(range(len(rms_energy)), sr = sample_rate)
