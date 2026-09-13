@@ -2,7 +2,8 @@ import shutil
 import uuid
 from pathlib import Path
 
-from fastapi import FastAPI, UploadFile
+from audioread.exceptions import NoBackendError
+from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from src.song_dna.features import extract_features
 from fastapi.staticfiles import StaticFiles
@@ -34,10 +35,21 @@ def generate_unique_filename(original_filename: str) -> str:
 def analyze(file: UploadFile):
     destination = UPLOAD_DIR / generate_unique_filename(file.filename)
 
-    with destination.open("wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    try:
+        with destination.open("wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
 
-    result = extract_features(str(destination))
+        result = extract_features(str(destination))
+    except NoBackendError:
+        raise HTTPException(
+            status_code=400,
+            detail="Couldn't read this file as audio. Make sure it's a valid, supported audio file (e.g. mp3 or wav).",
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=500,
+            detail="Something went wrong while analyzing this file.",
+        )
 
     return {
         "file_path": result.file_path,
