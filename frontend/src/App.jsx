@@ -1,68 +1,19 @@
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
+import SongPanel from "./SongPanel";
+import { getSharedMax } from "./scaling";
 
 function App() {
-  const [features, setFeatures] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const audioRef = useRef(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
+  const [songAFeatures, setSongAFeatures] = useState(null);
+  const [songBFeatures, setSongBFeatures] = useState(null);
 
-  function togglePlay() {
-    if (!audioRef.current) return;
-    if (isPlaying) {
-      audioRef.current.pause();
-    } else {
-      audioRef.current.play();
-    }
-    setIsPlaying(!isPlaying);
-  }
-
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    function handleTimeUpdate() {
-      setCurrentTime(audio.currentTime);
-    }
-
-    audio.addEventListener("timeupdate", handleTimeUpdate);
-    return () => audio.removeEventListener("timeupdate", handleTimeUpdate);
-  }, [features]);
-
-  async function handleFileChange(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    setLoading(true);
-
-    const formData = new FormData();
-    formData.append("file", file);
-
-    const response = await fetch("http://127.0.0.1:8000/analyze", {
-      method: "POST",
-      body: formData,
-    });
-
-    const data = await response.json();
-    setFeatures(data);
-    setLoading(false);
-  }
-
-  function buildPath(values, width, height) {
-    const max = Math.max(...values);
-    const stepX = width / (values.length - 1);
-
-    return values
-      .map((v, i) => {
-        const x = i * stepX;
-        const y = height - (v / max) * height;
-        return `${i === 0 ? "M" : "L"} ${x},${y}`;
-      })
-      .join(" ");
-  }
-
-  const width = 900;
-  const height = 200;
+  const rmsMax = getSharedMax([
+    songAFeatures?.rms_energy,
+    songBFeatures?.rms_energy,
+  ]);
+  const centroidMax = getSharedMax([
+    songAFeatures?.spectral_centroid,
+    songBFeatures?.spectral_centroid,
+  ]);
 
   return (
     <div
@@ -79,77 +30,22 @@ function App() {
           Song DNA
         </h1>
         <p style={{ color: "#6b6b6b", fontSize: 14, marginBottom: 24 }}>
-          Upload a track to see its energy and brightness over time.
+          Upload two tracks to compare their energy and brightness over time.
         </p>
 
-        <input type="file" accept="audio/*" onChange={handleFileChange} />
-
-        {loading && (
-          <p style={{ fontFamily: "monospace", fontSize: 13, color: "#6b6b6b", marginTop: 16 }}>
-            Analyzing...
-          </p>
-        )}
-
-        {features && (
-          <div style={{ marginTop: 24 }}>
-            <p style={{ fontFamily: "monospace", fontSize: 12, color: "#6b6b6b", marginBottom: 12 }}>
-              {features.file_path} — {features.duration_seconds.toFixed(1)}s
-            </p>
-
-            <audio ref={audioRef} src={features.audio_url} />
-            <button onClick={togglePlay} style={{ marginTop: 12, marginBottom: 12 }}>
-              {isPlaying ? "Pause" : "Play"}
-            </button>
-
-            <div
-              style={{
-                background: "#fbfbfb",
-                border: "1px solid #e6e6e6",
-                borderRadius: 6,
-                padding: 20,
-              }}
-            >
-              <svg width={width} height={height} style={{ display: "block" }}>
-                <line x1="0" y1={height / 2} x2={width} y2={height / 2} stroke="#e6e6e6" strokeWidth="1" />
-                <line
-                  x1={(currentTime / features.duration_seconds) * width}
-                  y1={0}
-                  x2={(currentTime / features.duration_seconds) * width}
-                  y2={height}
-                  stroke="#0a0a0a"
-                  strokeWidth="1"
-                />
-                <path
-                  d={buildPath(features.rms_energy, width, height)}
-                  fill="none"
-                  stroke="#2f6bf0"
-                  strokeWidth="1.6"
-                />
-                <path
-                  d={buildPath(features.spectral_centroid, width, height)}
-                  fill="none"
-                  stroke="#1f9d55"
-                  strokeWidth="1.6"
-                />
-              </svg>
-
-              <div style={{ display: "flex", gap: 20, marginTop: 16 }}>
-                <LegendItem color="#2f6bf0" label="Energy" />
-                <LegendItem color="#1f9d55" label="Brightness" />
-              </div>
-            </div>
-          </div>
-        )}
+        <SongPanel
+          label="Song A"
+          rmsMax={rmsMax}
+          centroidMax={centroidMax}
+          onFeaturesChange={setSongAFeatures}
+        />
+        <SongPanel
+          label="Song B"
+          rmsMax={rmsMax}
+          centroidMax={centroidMax}
+          onFeaturesChange={setSongBFeatures}
+        />
       </div>
-    </div>
-  );
-}
-
-function LegendItem({ color, label }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, color: "#6b6b6b" }}>
-      <span style={{ width: 14, height: 2, background: color, display: "inline-block", borderRadius: 2 }} />
-      {label}
     </div>
   );
 }
