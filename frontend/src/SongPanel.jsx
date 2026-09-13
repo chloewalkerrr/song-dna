@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, useId } from "react";
+import { Music, Upload } from "lucide-react";
 import Fingerprint from "./Fingerprint";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -76,17 +76,36 @@ function SongPanel({ label, rmsMax, centroidMax, onFeaturesChange }) {
 
   return (
     <Card className="mb-10">
-      <CardHeader>
-        <CardTitle>{label}</CardTitle>
+      <CardHeader className="flex flex-row items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <div className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <Music className="size-4" />
+          </div>
+          <CardTitle>{label}</CardTitle>
+        </div>
+        {features && (
+          <Badge variant="secondary">{features.duration_seconds.toFixed(1)}s</Badge>
+        )}
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <div className="grid gap-1.5">
-          <Label htmlFor={inputId}>Audio file</Label>
-          <Input id={inputId} type="file" accept="audio/*" onChange={handleFileChange} />
-        </div>
+        <Label
+          htmlFor={inputId}
+          className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-input px-4 py-8 text-center transition-colors hover:bg-accent/50"
+        >
+          <Upload className="size-5 text-muted-foreground" />
+          <span className="text-sm font-medium">Click to choose an audio file</span>
+          <span className="text-xs text-muted-foreground">MP3 or WAV</span>
+          <input
+            id={inputId}
+            type="file"
+            accept="audio/*"
+            onChange={handleFileChange}
+            className="sr-only"
+          />
+        </Label>
 
         {loading && (
-          <p className="font-mono text-sm text-neutral-500">Analyzing...</p>
+          <p className="font-mono text-sm text-muted-foreground">Analyzing...</p>
         )}
 
         {error && (
@@ -97,15 +116,16 @@ function SongPanel({ label, rmsMax, centroidMax, onFeaturesChange }) {
 
         {features && (
           <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-xs text-neutral-500">{features.file_path}</span>
-              <Badge variant="secondary">{features.duration_seconds.toFixed(1)}s</Badge>
+            <div className="flex items-center justify-between gap-3">
+              <span className="truncate font-mono text-xs text-muted-foreground">
+                {features.file_path}
+              </span>
+              <Button onClick={togglePlay} className="shrink-0">
+                {isPlaying ? "Pause" : "Play"}
+              </Button>
             </div>
 
             <audio ref={audioRef} src={features.audio_url} />
-            <Button onClick={togglePlay} className="w-fit">
-              {isPlaying ? "Pause" : "Play"}
-            </Button>
 
             <Fingerprint
               features={features}

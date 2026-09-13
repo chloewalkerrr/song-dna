@@ -25,7 +25,7 @@ export function computeBarHeight(value, max, halfHeight) {
 
 function LegendItem({ className, label }) {
   return (
-    <div className="flex items-center gap-1.5 text-[13px] text-neutral-500">
+    <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
       <span className={`inline-block h-2 w-3.5 rounded-sm ${className}`} />
       {label}
     </div>
@@ -42,9 +42,9 @@ function Fingerprint({ features, currentTime, rmsMax, centroidMax }) {
   const playheadX = (currentTime / features.duration_seconds) * WIDTH;
 
   return (
-    <div className="rounded-md border border-neutral-200 bg-neutral-50 p-5">
+    <div className="rounded-md border border-border bg-card p-5">
       <svg width={WIDTH} height={HEIGHT} style={{ display: "block" }}>
-        <line x1="0" y1={CENTER_Y} x2={WIDTH} y2={CENTER_Y} className="stroke-neutral-200" strokeWidth="1" />
+        <line x1="0" y1={CENTER_Y} x2={WIDTH} y2={CENTER_Y} className="stroke-border" strokeWidth="1" />
 
         {energySegments.map((value, i) => {
           const height = computeBarHeight(value, rmsMax, HALF_HEIGHT);
@@ -78,7 +78,7 @@ function Fingerprint({ features, currentTime, rmsMax, centroidMax }) {
           );
         })}
 
-        <line x1={playheadX} y1={0} x2={playheadX} y2={HEIGHT} className="stroke-neutral-950" strokeWidth="1" />
+        <line x1={playheadX} y1={0} x2={playheadX} y2={HEIGHT} className="stroke-foreground" strokeWidth="1" />
       </svg>
 
       <div className="mt-4 flex gap-5">
