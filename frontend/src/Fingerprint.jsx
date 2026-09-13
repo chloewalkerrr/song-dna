@@ -14,6 +14,15 @@ const HALF_HEIGHT = HEIGHT / 2;
 // chorus, a quiet bridge) rather than collapsing it into a handful of blocks.
 const SEGMENT_COUNT = 40;
 
+// Converts a bucketed value into a bar height, scaled against `max`.
+// Clamped to halfHeight because centroidMax is a percentile ceiling (not
+// the true max) - a segment's value can legitimately exceed it, and should
+// visually clip at full bar height rather than overflow past the chart.
+export function computeBarHeight(value, max, halfHeight) {
+  const rawHeight = (value / max) * halfHeight;
+  return Math.min(rawHeight, halfHeight);
+}
+
 function LegendItem({ className, label }) {
   return (
     <div className="flex items-center gap-1.5 text-[13px] text-neutral-500">
@@ -38,7 +47,7 @@ function Fingerprint({ features, currentTime, rmsMax, centroidMax }) {
         <line x1="0" y1={CENTER_Y} x2={WIDTH} y2={CENTER_Y} className="stroke-neutral-200" strokeWidth="1" />
 
         {energySegments.map((value, i) => {
-          const height = (value / rmsMax) * HALF_HEIGHT;
+          const height = computeBarHeight(value, rmsMax, HALF_HEIGHT);
           const x = i * cellWidth + (cellWidth - barWidth) / 2;
           return (
             <rect
@@ -54,7 +63,7 @@ function Fingerprint({ features, currentTime, rmsMax, centroidMax }) {
         })}
 
         {brightnessSegments.map((value, i) => {
-          const height = (value / centroidMax) * HALF_HEIGHT;
+          const height = computeBarHeight(value, centroidMax, HALF_HEIGHT);
           const x = i * cellWidth + (cellWidth - barWidth) / 2;
           return (
             <rect
