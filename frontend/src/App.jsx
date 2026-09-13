@@ -1,7 +1,6 @@
 import { useState } from "react";
 import SongPanel from "./SongPanel";
 import { getSharedMax } from "./scaling";
-import { Button } from "@/components/ui/button";
 
 function App() {
   const [songAFeatures, setSongAFeatures] = useState(null);
@@ -33,11 +32,6 @@ function App() {
         <p style={{ color: "#6b6b6b", fontSize: 14, marginBottom: 24 }}>
           Upload two tracks to compare their energy and brightness over time.
         </p>
-
-        {/* Tailwind + shadcn/ui smoke test only — remove once real styling work begins */}
-        <Button variant="default" style={{ marginBottom: 24 }}>
-          Tailwind/shadcn test button
-        </Button>
 
         <SongPanel
           label="Song A"

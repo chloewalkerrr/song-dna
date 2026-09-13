@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import Fingerprint from "./Fingerprint";
+import { Button } from "@/components/ui/button";
 
 function SongPanel({ label, rmsMax, centroidMax, onFeaturesChange }) {
   const [features, setFeatures] = useState(null);
@@ -91,9 +92,9 @@ function SongPanel({ label, rmsMax, centroidMax, onFeaturesChange }) {
           </p>
 
           <audio ref={audioRef} src={features.audio_url} />
-          <button onClick={togglePlay} style={{ marginTop: 12, marginBottom: 12 }}>
+          <Button onClick={togglePlay} className="mt-3 mb-3">
             {isPlaying ? "Pause" : "Play"}
-          </button>
+          </Button>
 
           <Fingerprint
             features={features}

@@ -1,66 +1,80 @@
+import { bucketAverage } from "./bucketing";
+
 const WIDTH = 900;
 const HEIGHT = 200;
+const CENTER_Y = HEIGHT / 2;
+const HALF_HEIGHT = HEIGHT / 2;
 
-// Builds an SVG path string plotting `values` left-to-right, scaled against
-// `max` (not each array's own max) so two fingerprints can share one scale.
-export function buildPath(values, width, height, max) {
-  const stepX = width / (values.length - 1);
+// Number of visual bars the fingerprint is drawn with, regardless of how
+// many analysis frames the song actually has. Chosen empirically: a typical
+// song has thousands of frames (~43/sec at the analysis hop length used),
+// far too many to render as distinct bars. 40 keeps each bar wide enough to
+// read as a discrete "DNA segment" rather than a blur, while still being
+// enough bars to show the song's large-scale shape (intro build-up, a loud
+// chorus, a quiet bridge) rather than collapsing it into a handful of blocks.
+const SEGMENT_COUNT = 40;
 
-  return values
-    .map((v, i) => {
-      const x = i * stepX;
-      const y = height - (v / max) * height;
-      return `${i === 0 ? "M" : "L"} ${x},${y}`;
-    })
-    .join(" ");
-}
-
-function LegendItem({ color, label }) {
+function LegendItem({ className, label }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, color: "#6b6b6b" }}>
-      <span style={{ width: 14, height: 2, background: color, display: "inline-block", borderRadius: 2 }} />
+    <div className="flex items-center gap-1.5 text-[13px] text-neutral-500">
+      <span className={`inline-block h-2 w-3.5 rounded-sm ${className}`} />
       {label}
     </div>
   );
 }
 
 function Fingerprint({ features, currentTime, rmsMax, centroidMax }) {
+  const cellWidth = WIDTH / SEGMENT_COUNT;
+  const barWidth = cellWidth * 0.7;
+
+  const energySegments = bucketAverage(features.rms_energy, SEGMENT_COUNT);
+  const brightnessSegments = bucketAverage(features.spectral_centroid, SEGMENT_COUNT);
+
+  const playheadX = (currentTime / features.duration_seconds) * WIDTH;
+
   return (
-    <div
-      style={{
-        background: "#fbfbfb",
-        border: "1px solid #e6e6e6",
-        borderRadius: 6,
-        padding: 20,
-      }}
-    >
+    <div className="rounded-md border border-neutral-200 bg-neutral-50 p-5">
       <svg width={WIDTH} height={HEIGHT} style={{ display: "block" }}>
-        <line x1="0" y1={HEIGHT / 2} x2={WIDTH} y2={HEIGHT / 2} stroke="#e6e6e6" strokeWidth="1" />
-        <line
-          x1={(currentTime / features.duration_seconds) * WIDTH}
-          y1={0}
-          x2={(currentTime / features.duration_seconds) * WIDTH}
-          y2={HEIGHT}
-          stroke="#0a0a0a"
-          strokeWidth="1"
-        />
-        <path
-          d={buildPath(features.rms_energy, WIDTH, HEIGHT, rmsMax)}
-          fill="none"
-          stroke="#2f6bf0"
-          strokeWidth="1.6"
-        />
-        <path
-          d={buildPath(features.spectral_centroid, WIDTH, HEIGHT, centroidMax)}
-          fill="none"
-          stroke="#1f9d55"
-          strokeWidth="1.6"
-        />
+        <line x1="0" y1={CENTER_Y} x2={WIDTH} y2={CENTER_Y} className="stroke-neutral-200" strokeWidth="1" />
+
+        {energySegments.map((value, i) => {
+          const height = (value / rmsMax) * HALF_HEIGHT;
+          const x = i * cellWidth + (cellWidth - barWidth) / 2;
+          return (
+            <rect
+              key={`energy-${i}`}
+              x={x}
+              y={CENTER_Y - height}
+              width={barWidth}
+              height={height}
+              rx={barWidth / 2}
+              className="fill-blue-500"
+            />
+          );
+        })}
+
+        {brightnessSegments.map((value, i) => {
+          const height = (value / centroidMax) * HALF_HEIGHT;
+          const x = i * cellWidth + (cellWidth - barWidth) / 2;
+          return (
+            <rect
+              key={`brightness-${i}`}
+              x={x}
+              y={CENTER_Y}
+              width={barWidth}
+              height={height}
+              rx={barWidth / 2}
+              className="fill-emerald-500"
+            />
+          );
+        })}
+
+        <line x1={playheadX} y1={0} x2={playheadX} y2={HEIGHT} className="stroke-neutral-950" strokeWidth="1" />
       </svg>
 
-      <div style={{ display: "flex", gap: 20, marginTop: 16 }}>
-        <LegendItem color="#2f6bf0" label="Energy" />
-        <LegendItem color="#1f9d55" label="Brightness" />
+      <div className="mt-4 flex gap-5">
+        <LegendItem className="bg-blue-500" label="Energy" />
+        <LegendItem className="bg-emerald-500" label="Brightness" />
       </div>
     </div>
   );
