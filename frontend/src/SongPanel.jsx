@@ -1,8 +1,14 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useId } from "react";
 import Fingerprint from "./Fingerprint";
 import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 function SongPanel({ label, rmsMax, centroidMax, onFeaturesChange }) {
+  const inputId = useId();
   const [features, setFeatures] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -69,42 +75,48 @@ function SongPanel({ label, rmsMax, centroidMax, onFeaturesChange }) {
   }
 
   return (
-    <div style={{ marginBottom: 40 }}>
-      <h2 style={{ fontWeight: 600, fontSize: 18, marginBottom: 8 }}>{label}</h2>
-      <input type="file" accept="audio/*" onChange={handleFileChange} />
-
-      {loading && (
-        <p style={{ fontFamily: "monospace", fontSize: 13, color: "#6b6b6b", marginTop: 16 }}>
-          Analyzing...
-        </p>
-      )}
-
-      {error && (
-        <p style={{ fontFamily: "monospace", fontSize: 13, color: "#c0392b", marginTop: 16 }}>
-          {error}
-        </p>
-      )}
-
-      {features && (
-        <div style={{ marginTop: 24 }}>
-          <p style={{ fontFamily: "monospace", fontSize: 12, color: "#6b6b6b", marginBottom: 12 }}>
-            {features.file_path} — {features.duration_seconds.toFixed(1)}s
-          </p>
-
-          <audio ref={audioRef} src={features.audio_url} />
-          <Button onClick={togglePlay} className="mt-3 mb-3">
-            {isPlaying ? "Pause" : "Play"}
-          </Button>
-
-          <Fingerprint
-            features={features}
-            currentTime={currentTime}
-            rmsMax={rmsMax}
-            centroidMax={centroidMax}
-          />
+    <Card className="mb-10">
+      <CardHeader>
+        <CardTitle>{label}</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <div className="grid gap-1.5">
+          <Label htmlFor={inputId}>Audio file</Label>
+          <Input id={inputId} type="file" accept="audio/*" onChange={handleFileChange} />
         </div>
-      )}
-    </div>
+
+        {loading && (
+          <p className="font-mono text-sm text-neutral-500">Analyzing...</p>
+        )}
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {features && (
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-xs text-neutral-500">{features.file_path}</span>
+              <Badge variant="secondary">{features.duration_seconds.toFixed(1)}s</Badge>
+            </div>
+
+            <audio ref={audioRef} src={features.audio_url} />
+            <Button onClick={togglePlay} className="w-fit">
+              {isPlaying ? "Pause" : "Play"}
+            </Button>
+
+            <Fingerprint
+              features={features}
+              currentTime={currentTime}
+              rmsMax={rmsMax}
+              centroidMax={centroidMax}
+            />
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

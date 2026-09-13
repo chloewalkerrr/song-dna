@@ -34,10 +34,10 @@ function App() {
       }}
     >
       <div style={{ maxWidth: 920, margin: "0 auto" }}>
-        <h1 style={{ fontWeight: 600, fontSize: 28, letterSpacing: "-0.01em", marginBottom: 4 }}>
+        <h1 className="mb-1 text-3xl font-semibold tracking-tight">
           Song DNA
         </h1>
-        <p style={{ color: "#6b6b6b", fontSize: 14, marginBottom: 24 }}>
+        <p className="mb-6 text-sm text-neutral-500">
           Upload two tracks to compare their energy and brightness over time.
         </p>
 
