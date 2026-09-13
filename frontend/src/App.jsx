@@ -24,20 +24,12 @@ function App() {
   );
 
   return (
-    <div
-      style={{
-        fontFamily: "'Inter', sans-serif",
-        color: "#0a0a0a",
-        background: "#ffffff",
-        minHeight: "100vh",
-        padding: "40px 32px",
-      }}
-    >
-      <div style={{ maxWidth: 920, margin: "0 auto" }}>
-        <h1 style={{ fontWeight: 600, fontSize: 28, letterSpacing: "-0.01em", marginBottom: 4 }}>
+    <div className="min-h-screen bg-background px-8 py-10 text-foreground">
+      <div className="mx-auto max-w-[920px]">
+        <h1 className="mb-1 text-3xl font-semibold tracking-tight">
           Song DNA
         </h1>
-        <p style={{ color: "#6b6b6b", fontSize: 14, marginBottom: 24 }}>
+        <p className="mb-6 text-sm text-muted-foreground">
           Upload two tracks to compare their energy and brightness over time.
         </p>
 
