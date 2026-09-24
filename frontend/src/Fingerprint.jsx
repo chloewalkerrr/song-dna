@@ -1,9 +1,19 @@
 import { bucketAverage } from "./bucketing";
+import { thinBeatTimes } from "./beatThinning";
 
 const WIDTH = 900;
 const HEIGHT = 200;
 const CENTER_Y = HEIGHT / 2;
 const HALF_HEIGHT = HEIGHT / 2;
+
+// Minimum on-screen gap (in pixels) between beat markers. A real song can
+// have hundreds of beats packed into this fixed-width chart - close enough
+// together to overlap into a smear rather than read as distinct dots.
+// Verified visually (not just by the math): 8px - only slightly more than
+// the marker's own diameter (r=3, see below) - still rendered as a
+// near-continuous dashed line on a real 350s/802-beat song. 18px is what
+// it actually took to see individual, separated dots on that same song.
+const MIN_BEAT_MARKER_SPACING_PX = 18;
 
 // Number of visual bars the fingerprint is drawn with, regardless of how
 // many analysis frames the song actually has. Chosen empirically: a typical
@@ -50,6 +60,13 @@ function Fingerprint({ features, currentTime, rmsMax, centroidMax }) {
 
   const playheadX = (currentTime / features.duration_seconds) * WIDTH;
 
+  const displayedBeatTimes = thinBeatTimes(
+    features.beat_times ?? [],
+    features.duration_seconds,
+    WIDTH,
+    MIN_BEAT_MARKER_SPACING_PX
+  );
+
   return (
     <div className="rounded-md border border-border bg-card p-5">
       <svg width={WIDTH} height={HEIGHT} style={{ display: "block" }}>
@@ -87,7 +104,7 @@ function Fingerprint({ features, currentTime, rmsMax, centroidMax }) {
           );
         })}
 
-        {features.beat_times?.map((beatTime, i) => {
+        {displayedBeatTimes.map((beatTime, i) => {
           // Time-based, like the playhead - stays correctly positioned
           // regardless of how many bars the fingerprint is bucketed into.
           const x = (beatTime / features.duration_seconds) * WIDTH;
