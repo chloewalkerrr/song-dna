@@ -1,0 +1,73 @@
+name: Tests
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+
+jobs:
+  backend:
+    name: pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 3.11 matches venv/pyvenv.cfg (3.11.9), which is what this project is
+      # actually developed and run against locally.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run pytest
+        run: python -m pytest
+
+      # Regression guard: a past bug (bad `src.song_dna`-prefixed imports)
+      # broke `uvicorn` while pytest kept passing, because pytest and
+      # uvicorn resolve the song_dna package from different roots. pytest
+      # alone can't catch that class of bug, so also boot the app exactly
+      # the way it's actually run and confirm it comes up.
+      - name: Smoke test - boot the app the way it's actually run
+        run: |
+          uvicorn song_dna.api:app --app-dir src --port 8000 &
+          SERVER_PID=$!
+
+          for i in $(seq 1 10); do
+            if curl -sf http://127.0.0.1:8000/docs > /dev/null; then
+              echo "App booted and responded successfully."
+              kill $SERVER_PID
+              exit 0
+            fi
+            sleep 1
+          done
+
+          echo "App did not boot / respond within 10 seconds."
+          kill $SERVER_PID 2>/dev/null || true
+          exit 1
+
+  frontend:
+    name: vitest
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      # No engines field in frontend/package.json; 22 matches the Node
+      # version this project is actually developed with locally (v22.14.0)
+      # and satisfies vite's own engines constraint (^20.19.0 || >=22.12.0).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Run vitest
+        run: npm test
