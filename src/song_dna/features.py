@@ -4,6 +4,19 @@ import librosa
 
 from song_dna.rms import compute_rms_energy
 
+# Sample rate used specifically for beat tracking, separate from the
+# full-resolution waveform used for RMS/spectral centroid. Beat tracking
+# only needs to see the broad rhythmic/percussive energy envelope, not
+# the fine high-frequency detail that spectral centroid (a brightness
+# measure) genuinely depends on - so it can run on a much lower-resolution
+# copy of the audio without meaningfully hurting accuracy. 11025Hz (exactly
+# half librosa's own default load rate of 22050) is an established choice
+# for rhythm/tempo estimation in MIR: it's used for downsampled tempo
+# analysis in published tempo-estimation research, and by Essentia's own
+# TempoCNN model, precisely because percussive onset energy sits well
+# below its ~5.5kHz Nyquist limit.
+BEAT_TRACKING_SAMPLE_RATE = 11025
+
 @dataclass
 class AudioFeatures:
     """
@@ -41,9 +54,18 @@ def extract_features(file_path: str) -> AudioFeatures:
     rms_energy = compute_rms_energy(waveform)
     spectral_centroid = librosa.feature.spectral_centroid(y = waveform, sr = sample_rate)[0]
 
+    # Beat tracking runs on a downsampled copy for speed (see
+    # BEAT_TRACKING_SAMPLE_RATE above) - units="time" returns real
+    # seconds regardless of the sample rate used internally, so beat
+    # timestamps stay correctly aligned with the full-resolution timeline.
     # Only beat timestamps are exposed for now - the estimated tempo
     # (beats per minute) that beat_track also returns isn't used yet.
-    _tempo, beat_times = librosa.beat.beat_track(y = waveform, sr = sample_rate, units = "time")
+    beat_tracking_waveform = librosa.resample(
+        waveform, orig_sr = sample_rate, target_sr = BEAT_TRACKING_SAMPLE_RATE
+    )
+    _tempo, beat_times = librosa.beat.beat_track(
+        y = beat_tracking_waveform, sr = BEAT_TRACKING_SAMPLE_RATE, units = "time"
+    )
 
     times = librosa.frames_to_time(range(len(rms_energy)), sr = sample_rate)
     duration_seconds = len(waveform) / sample_rate
