@@ -62,6 +62,7 @@ def analyze(file: UploadFile):
         "times": result.times.tolist(),
         "rms_energy": result.rms_energy.tolist(),
         "spectral_centroid": result.spectral_centroid.tolist(),
+        "beat_times": result.beat_times.tolist(),
     }
 
 
