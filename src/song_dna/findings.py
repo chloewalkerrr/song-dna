@@ -1,6 +1,6 @@
 import numpy as np
 
-from src.song_dna.features import AudioFeatures
+from song_dna.features import AudioFeatures
 
 # Below this relative difference, two values are treated as "about the
 # same" rather than forcing a comparison that isn't really there. 10% is
