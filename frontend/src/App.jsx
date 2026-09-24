@@ -1,5 +1,6 @@
 import { useState } from "react";
 import SongPanel from "./SongPanel";
+import Findings from "./Findings";
 import { getSharedMax, getSharedScaleMax } from "./scaling";
 
 // Spectral centroid has rare outlier frames (e.g. a single transient/click)
@@ -45,6 +46,10 @@ function App() {
           centroidMax={centroidMax}
           onFeaturesChange={setSongBFeatures}
         />
+
+        {songAFeatures && songBFeatures && (
+          <Findings songAFeatures={songAFeatures} songBFeatures={songBFeatures} />
+        )}
       </div>
     </div>
   );

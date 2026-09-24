@@ -2,9 +2,10 @@ import io
 
 import pytest
 from fastapi import HTTPException, UploadFile
+from pydantic import ValidationError
 
 from src.song_dna import api
-from src.song_dna.api import generate_unique_filename
+from src.song_dna.api import CompareRequest, SongComparisonInput, generate_unique_filename
 
 
 def test_generate_unique_filename_keeps_extension():
@@ -46,3 +47,23 @@ def test_analyze_returns_500_for_unexpected_error(tmp_path, monkeypatch):
         api.analyze(upload)
 
     assert exc_info.value.status_code == 500
+
+
+def test_compare_returns_a_finding_for_each_category():
+    request = CompareRequest(
+        song_a=SongComparisonInput(rms_energy=[0.8] * 20, spectral_centroid=[2000] * 20),
+        song_b=SongComparisonInput(rms_energy=[0.2] * 20, spectral_centroid=[1000] * 20),
+    )
+
+    result = api.compare(request)
+
+    categories = {finding["category"] for finding in result["findings"]}
+    assert categories == {"average_energy", "dynamic_range", "energy_trend", "brightness"}
+
+
+def test_compare_rejects_empty_feature_arrays():
+    with pytest.raises(ValidationError):
+        CompareRequest(
+            song_a=SongComparisonInput(rms_energy=[], spectral_centroid=[]),
+            song_b=SongComparisonInput(rms_energy=[0.5], spectral_centroid=[1000]),
+        )
