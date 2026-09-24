@@ -7,8 +7,8 @@ from audioread.exceptions import NoBackendError
 from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from src.song_dna.features import AudioFeatures, extract_features
-from src.song_dna.findings import generate_findings
+from song_dna.features import AudioFeatures, extract_features
+from song_dna.findings import generate_findings
 from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()

@@ -2,7 +2,7 @@ from dataclasses import dataclass
 import numpy as np
 import librosa
 
-from src.song_dna.rms import compute_rms_energy
+from song_dna.rms import compute_rms_energy
 
 @dataclass
 class AudioFeatures:
