@@ -35,7 +35,7 @@ function LegendItem({ className, label }) {
 function LegendDot({ label }) {
   return (
     <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-      <span className="inline-block size-1.5 rounded-full bg-muted-foreground/60" />
+      <span className="inline-block size-1.5 rounded-full bg-amber-400/90" />
       {label}
     </div>
   );
@@ -96,8 +96,8 @@ function Fingerprint({ features, currentTime, rmsMax, centroidMax }) {
               key={`beat-${i}`}
               cx={x}
               cy={4}
-              r={2}
-              className="fill-muted-foreground/60"
+              r={3}
+              className="fill-amber-400/90"
             />
           );
         })}
