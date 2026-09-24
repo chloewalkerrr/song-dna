@@ -32,6 +32,15 @@ function LegendItem({ className, label }) {
   );
 }
 
+function LegendDot({ label }) {
+  return (
+    <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+      <span className="inline-block size-1.5 rounded-full bg-muted-foreground/60" />
+      {label}
+    </div>
+  );
+}
+
 function Fingerprint({ features, currentTime, rmsMax, centroidMax }) {
   const cellWidth = WIDTH / SEGMENT_COUNT;
   const barWidth = cellWidth * 0.7;
@@ -78,12 +87,28 @@ function Fingerprint({ features, currentTime, rmsMax, centroidMax }) {
           );
         })}
 
+        {features.beat_times?.map((beatTime, i) => {
+          // Time-based, like the playhead - stays correctly positioned
+          // regardless of how many bars the fingerprint is bucketed into.
+          const x = (beatTime / features.duration_seconds) * WIDTH;
+          return (
+            <circle
+              key={`beat-${i}`}
+              cx={x}
+              cy={4}
+              r={2}
+              className="fill-muted-foreground/60"
+            />
+          );
+        })}
+
         <line x1={playheadX} y1={0} x2={playheadX} y2={HEIGHT} className="stroke-foreground" strokeWidth="1" />
       </svg>
 
       <div className="mt-4 flex gap-5">
         <LegendItem className="bg-blue-500" label="Energy" />
         <LegendItem className="bg-emerald-500" label="Brightness" />
+        <LegendDot label="Beats" />
       </div>
     </div>
   );
