@@ -1,0 +1,37 @@
+[
+  {
+    "id": "dev-pulse",
+    "title": "Dev Pulse",
+    "genre": "Electronic",
+    "file": "dev-pulse.mp3",
+    "description": "Synthetic placeholder: steady 120 BPM kick and hats with flat energy."
+  },
+  {
+    "id": "dev-slow-build",
+    "title": "Dev Slow Build",
+    "genre": "Ambient",
+    "file": "dev-slow-build.mp3",
+    "description": "Synthetic placeholder: a soft pad that swells and brightens, with a late gentle pulse."
+  },
+  {
+    "id": "dev-fade-out",
+    "title": "Dev Fade Out",
+    "genre": "Rock",
+    "file": "dev-fade-out.mp3",
+    "description": "Synthetic placeholder: loud, bright 140 BPM hits decaying to near-silence."
+  },
+  {
+    "id": "dev-sections",
+    "title": "Dev Sections",
+    "genre": "Cinematic",
+    "file": "dev-sections.mp3",
+    "description": "Synthetic placeholder: quiet pad, loud groove, quiet pad - three distinct sections."
+  },
+  {
+    "id": "dev-sweep",
+    "title": "Dev Sweep",
+    "genre": "Experimental",
+    "file": "dev-sweep.mp3",
+    "description": "Synthetic placeholder: repeating low-to-high chirps with a slow loudness swell."
+  }
+]
