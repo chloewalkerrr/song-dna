@@ -71,3 +71,8 @@ jobs:
 
       - name: Run vitest
         run: npm test
+
+      # Regression guard: tests only import pure logic modules, so a broken
+      # import or bundling error in a component wouldn't fail vitest.
+      - name: Build
+        run: npm run build

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { API_BASE } from "@/lib/config";
 
 // Findings only make sense once both songs are analyzed, so this always
 // renders with both feature sets already present - App only mounts it
@@ -16,7 +17,7 @@ function Findings({ songAFeatures, songBFeatures }) {
     setLoading(true);
     setError(null);
 
-    fetch("http://127.0.0.1:8000/compare", {
+    fetch(`${API_BASE}/compare`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

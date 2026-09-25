@@ -6,6 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { API_BASE } from "@/lib/config";
 
 function SongPanel({ label, rmsMax, centroidMax, onFeaturesChange }) {
   const inputId = useId();
@@ -49,7 +50,7 @@ function SongPanel({ label, rmsMax, centroidMax, onFeaturesChange }) {
     formData.append("file", file);
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/analyze", {
+      const response = await fetch(`${API_BASE}/analyze`, {
         method: "POST",
         body: formData,
       });
