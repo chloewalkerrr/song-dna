@@ -134,3 +134,11 @@ def test_beat_times_land_close_to_the_known_click_positions(click_track_features
     for beat_time in result.beat_times:
         nearest_gap = np.min(np.abs(beat_time - expected_beat_times))
         assert nearest_gap < 0.1  # within ~4 analysis frames of a real click
+
+
+def test_tempo_matches_the_known_bpm(click_track_features):
+    result, _ = click_track_features
+    # librosa quantizes tempo estimates (measured: 90/100/120/140 BPM click
+    # tracks come back within ~2-3.5 BPM), so allow 5% rather than exact.
+    assert isinstance(result.tempo_bpm, float)
+    assert result.tempo_bpm == pytest.approx(CLICK_TRACK_BPM, rel=0.05)

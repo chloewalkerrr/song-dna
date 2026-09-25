@@ -28,10 +28,10 @@ class AudioFeatures:
     timestamps (seconds), one per detected beat, not a frame-aligned
     series - so it's a different length than the other arrays.
 
-    beat_times defaults to an empty array (rather than being required)
-    so existing call sites that build an AudioFeatures without caring
-    about beats - e.g. /compare's minimal reconstruction from wire data,
-    or findings tests - don't need to be touched.
+    beat_times and tempo_bpm default to empty/zero (rather than being
+    required) so existing call sites that build an AudioFeatures without
+    caring about beats - e.g. /compare's minimal reconstruction from wire
+    data, or findings tests - don't need to be touched.
     """
 
     file_path: str
@@ -41,6 +41,7 @@ class AudioFeatures:
     rms_energy: np.ndarray
     spectral_centroid: np.ndarray
     beat_times: np.ndarray = field(default_factory=lambda: np.array([]))
+    tempo_bpm: float = 0.0
 
 
 def extract_features(file_path: str) -> AudioFeatures:
@@ -58,12 +59,10 @@ def extract_features(file_path: str) -> AudioFeatures:
     # BEAT_TRACKING_SAMPLE_RATE above) - units="time" returns real
     # seconds regardless of the sample rate used internally, so beat
     # timestamps stay correctly aligned with the full-resolution timeline.
-    # Only beat timestamps are exposed for now - the estimated tempo
-    # (beats per minute) that beat_track also returns isn't used yet.
     beat_tracking_waveform = librosa.resample(
         waveform, orig_sr = sample_rate, target_sr = BEAT_TRACKING_SAMPLE_RATE
     )
-    _tempo, beat_times = librosa.beat.beat_track(
+    tempo, beat_times = librosa.beat.beat_track(
         y = beat_tracking_waveform, sr = BEAT_TRACKING_SAMPLE_RATE, units = "time"
     )
 
@@ -78,4 +77,7 @@ def extract_features(file_path: str) -> AudioFeatures:
         rms_energy = rms_energy,
         spectral_centroid = spectral_centroid,
         beat_times = beat_times,
+        # beat_track returns tempo as a scalar or a 1-element array
+        # depending on the input, so normalize to a plain float.
+        tempo_bpm = float(np.atleast_1d(tempo)[0]),
     )
