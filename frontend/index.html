@@ -4,7 +4,16 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
+    <title>SongDNA</title>
+    <script>
+      // Apply the saved theme before first paint so a light-theme user
+      // doesn't see a dark flash. Must match THEME_STORAGE_KEY in src/lib/theme.js.
+      try {
+        if (localStorage.getItem("songdna-theme") === "light") {
+          document.documentElement.classList.remove("dark");
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>
