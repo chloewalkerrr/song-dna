@@ -219,3 +219,16 @@ __marimo__/
 
 # Audio data (large files, not for version control)
 data/
+
+# Playwright CLI snapshots, logs and screenshots
+.playwright-cli/
+
+# Installed agent skills (restore with `npx skills experimental_install`; see README)
+.agents/skills/
+.claude/skills/*
+# Project-authored workflow skill (tracked)
+!.claude/skills/feature/
+
+# Machine-local agent tool config
+.claude/settings.local.json
+.impeccable/*.local.json

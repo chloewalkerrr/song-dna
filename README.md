@@ -1,12 +1,14 @@
 # Song DNA
 
-Song DNA analyses an audio file's changing energy and frequency content over time and turns it into a visual "fingerprint" — a segmented, DNA-strand-style bar chart showing how loud (RMS energy) and how bright (spectral centroid) the song is at every moment. You can upload two songs side by side and compare their fingerprints on a shared scale, with independent playback for each.
+Song DNA analyses an audio file's changing energy and frequency content over time and turns it into a visual "fingerprint" — a segmented, DNA-strand-style bar chart showing how loud (RMS energy) and how bright (spectral centroid) the song is at every moment. The app has two pages: a **Library** of precomputed tracks you can browse, search, preview and select as Song A / Song B, and **Compare**, where you upload two songs to see their fingerprints on a shared scale, with independent playback and rule-based findings.
 
 This README describes what's actually built right now. For the longer-term concept and future milestones, see [`PROJECT_CONTEXT.md`](PROJECT_CONTEXT.md).
 
 ## What's implemented
 
-- **Upload and analyze one or two songs at once** — the app shows two upload slots (Song A / Song B), each independent, each presented as its own card with a dropzone-style file picker.
+- **App shell and routing** — a sidebar layout (React Router) with Library and Compare pages; any other URL redirects to `/library`.
+- **Library page** — browses a static, precomputed track library served from `frontend/public/library/` (no backend needed). Tracks can be searched and filtered by genre, previewed with a mini fingerprint and audio playback, and selected as Song A / Song B. Mini fingerprints use 48 segments normalized per track, so they show each track's shape, not loudness or brightness relative to other tracks. The current library audio is synthetic placeholder tracks (`scripts/generate_dev_tracks.py`); features are precomputed by `scripts/build_library.py`.
+- **Upload and analyze one or two songs at once (Compare page)** — the Compare page shows two upload slots (Song A / Song B), each independent, each presented as its own card with a dropzone-style file picker.
 - **RMS energy** — computed frame-by-frame with a manual numpy implementation (`src/song_dna/rms.py`), not a library call. Measures loudness over time.
 - **Spectral centroid** — computed via `librosa.feature.spectral_centroid`. Measures the "brightness" (weighted average frequency) of the sound at each moment, independent of loudness.
 - **Beat detection** — computed via `librosa.beat.beat_track`. Extracts the timestamp of each detected beat, shown as small marker dots along the top of each song's fingerprint (positioned by time, so they stay accurate regardless of how many visual segments the fingerprint is drawn with).
@@ -14,13 +16,15 @@ This README describes what's actually built right now. For the longer-term conce
 - **Playback** — each song has its own native `<audio>` element with play/pause and a playhead synced to actual playback position, fully independent between the two songs.
 - **Unique filenames on upload** — uploads are saved under a generated UUID-based filename (extension preserved), so two files with the same original name never overwrite each other on disk.
 - **Basic error handling** — uploading a non-audio or corrupt file returns a clear error message (both from the backend and shown in the UI as a destructive-styled alert) instead of a raw stack trace or a stuck "Analyzing..." state.
-- **Dark-themed, component-based UI** — the app uses a permanent dark theme (not a toggle, not OS-dependent) and shadcn/ui components (Card, Label, Badge, Alert, Button) throughout, rather than raw HTML controls and inline styles.
+- **Rule-based findings** — once both Compare slots are analyzed, the frontend sends both songs' RMS and centroid arrays to `POST /compare`, which returns plain-language findings about average energy, dynamic range, energy trend and brightness (`src/song_dna/findings.py`). Each finding comes from measured numbers and fixed thresholds; small differences are reported as "similar". There is no ML and no overall similarity score.
+- **Light/dark theme** — dark by default, with a light/dark toggle in the sidebar footer. The choice is saved in `localStorage` (`songdna-theme`); it does not follow the OS setting.
+- **Component-based UI** — built with shadcn/ui components (e.g. Card, Badge, Alert, Button, Input, Sidebar, Skeleton) rather than raw HTML controls and inline styles.
 
 ## Tech stack
 
 - **Backend:** Python, FastAPI, served with Uvicorn
 - **Audio analysis:** numpy (manual RMS), librosa (spectral centroid, audio loading), scipy
-- **Frontend:** React (Vite), styled with Tailwind CSS and shadcn/ui (Card, Label, Badge, Alert, and Button components)
+- **Frontend:** React (Vite) with React Router, styled with Tailwind CSS and shadcn/ui
 - **Testing:** pytest (backend), vitest (frontend)
 
 ## Running it locally
@@ -33,12 +37,11 @@ From the repository root, in PowerShell:
 
 ```powershell
 python -m venv venv
-.\venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-uvicorn src.song_dna.api:app --reload
+.\venv\Scripts\python.exe -m pip install -r requirements.txt
+.\venv\Scripts\python.exe -m uvicorn song_dna.api:app --app-dir src --reload
 ```
 
-This serves the API at `http://127.0.0.1:8000`.
+This serves the API at `http://127.0.0.1:8000`. Use `song_dna.api:app` with `--app-dir src`, not `src.song_dna.api:app`: the backend imports itself as `song_dna`, so the `src.` form fails to import. The backend is only needed for the Compare page (uploads and findings); the Library page works without it.
 
 To run the backend tests:
 
@@ -52,26 +55,69 @@ In a separate terminal, from the `frontend` folder:
 
 ```powershell
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
-Open `http://localhost:5173` in your browser.
+Open `http://localhost:5173` in your browser. The frontend calls the backend at `http://127.0.0.1:8000` by default; set `VITE_API_URL` to override it.
 
-To run the frontend tests:
+To run the frontend tests, lint and production build:
 
 ```powershell
 npm test
+npm run lint
+npm run build
 ```
+
+### Library
+
+The library's inputs are `frontend/public/library/metadata.json` and the audio in `frontend/public/library/audio/`. Don't edit the generated `library.json` or `features/*.json` by hand; rebuild them from the repository root:
+
+```powershell
+.\venv\Scripts\python.exe scripts\build_library.py
+```
+
+`scripts\generate_dev_tracks.py` regenerates the synthetic placeholder audio; rebuild the library afterwards.
+
+## AI tooling (optional)
+
+Agent instructions live in `AGENTS.md` (shared by all coding agents); `CLAUDE.md` imports it
+and adds Claude Code specifics. Project permissions for Claude Code are in
+`.claude/settings.json`.
+
+For Claude Code, `/feature <request>` runs the project's feature workflow
+(`.claude/skills/feature/`, tracked in git): plan, implement, test, verify UI changes in a
+browser with `playwright-cli`, self-review, and report. It never fetches, switches branches,
+stages, commits, pushes or opens PRs; those stay manual.
+
+Three agent skills are used: `impeccable`, `playwright-cli` and `gh-fix-ci`. The installed copies
+(`.agents/skills/`, `.claude/skills/`) are git-ignored; `skills-lock.json` records where each
+came from. To restore them after cloning:
+
+```powershell
+npx skills experimental_install
+```
+
+Limits to be aware of:
+
+- `skills-lock.json` records each skill's source repository and a content hash, **not** an
+  upstream revision. A restore fetches whatever the source currently contains, so it may differ
+  from the locked copy; the hash only shows that it changed. `experimental_install` is marked
+  experimental by the skills CLI.
+- The `impeccable` skill downloads a helper binary the first time it runs. The lock hash does
+  not cover that binary.
+- The `playwright-cli` skill needs the CLI itself, installed globally and not pinned by this
+  repo: `npm install -g @playwright/cli` (developed against 0.1.21).
 
 ## Planned / not yet built
 
 This is an honest list of what's missing, not a roadmap promise:
 
-- **No persistence.** Every upload is re-analyzed from scratch and results live only in React state — nothing is saved to disk or a database, and everything is lost on page refresh. `PROJECT_CONTEXT.md` describes a planned SQLite + per-song feature-file architecture; that hasn't been built.
-- **No similarity scoring or automated findings.** The app shows two fingerprints side by side; it doesn't yet compute or describe similarities/differences between them.
-- **Exactly two songs, hard-coded.** There's no support for more than two songs, and no way to swap or manage a library of previously analyzed songs.
+- **No persistence for uploads.** Every upload is re-analyzed from scratch and its results live only in React state, lost on page refresh (the uploaded file itself stays in `data/audio/`). Only the static library has precomputed features. `PROJECT_CONTEXT.md` describes a planned SQLite + per-song feature-file architecture; that hasn't been built.
+- **No overall similarity score.** Findings describe specific measured differences; there's no single similarity number and no section-level matching.
+- **Library selection isn't connected to Compare yet.** You can select Song A / Song B in the Library and the Compare button opens the Compare page, but Compare still starts with two empty upload slots. Compare supports exactly two songs.
+- **Library audio is placeholder.** The current library tracks are synthetic, generated for development; no curated real tracks have been added yet.
 - **No timeline alignment.** If two songs have different tempos or lengths, their fingerprints are not time-warped or aligned to each other.
 - **Error handling is basic, not comprehensive.** Unsupported/corrupt files and network failures show a message instead of breaking the UI, but there's no retry mechanism, and uploaded files (including ones that fail to analyze) are never cleaned up from disk.
-- **No automated frontend component tests.** The frontend test suite covers pure logic functions only (shared/percentile scaling, bucketing/downsampling, bar-height clamping); there's no automated testing of the upload flow, rendering, or playback behavior in a browser.
+- **No automated frontend component tests.** The frontend test suite covers pure logic modules only (scaling, bucketing, fingerprint layout, beat thinning, selection, track filtering, formatting, library loading, theme); there's no automated testing of the upload flow, rendering, or playback behavior in a browser.
 - **The upload area looks like a dropzone but isn't one yet.** It's styled to look drag-and-drop-able, but only click-to-choose is actually wired up — there's no `drop`/`dragover` handling, so dragging a file onto it currently does nothing.
