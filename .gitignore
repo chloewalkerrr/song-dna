@@ -225,7 +225,9 @@ data/
 
 # Installed agent skills (restore with `npx skills experimental_install`; see README)
 .agents/skills/
-.claude/skills/
+.claude/skills/*
+# Project-authored workflow skill (tracked)
+!.claude/skills/feature/
 
 # Machine-local agent tool config
 .claude/settings.local.json

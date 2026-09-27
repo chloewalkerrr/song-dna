@@ -4,7 +4,12 @@
 
 Most of this document describes Song DNA's overall concept and long-term vision — much of it is aspirational rather than built. For what's actually running today, see [`README.md`](README.md), which is kept up to date with the real codebase.
 
-In short: the current app is a two-song comparison tool with a Python/FastAPI backend (RMS energy computed manually via numpy, spectral centroid via librosa) and a React/Vite frontend styled with Tailwind CSS and shadcn/ui, rendering each song as a segmented dual-strand bar visualization with a permanent dark theme. There is no database, no similarity scoring or automated findings, and no support for more than two songs yet.
+In short: the current app has a Python/FastAPI backend (RMS energy computed manually via numpy, spectral centroid and beat tracking via librosa) and a React/Vite frontend styled with Tailwind CSS and shadcn/ui, dark by default with a light/dark toggle. It has two pages:
+
+- **Library** — browses a small static library of precomputed tracks (currently synthetic placeholder audio), with search, genre filters, mini-fingerprint previews and Song A / Song B selection. The selection is not yet carried into Compare.
+- **Compare** — two songs are uploaded and analysed, rendered as segmented dual-strand fingerprints on a shared scale, and described by a small set of rule-based findings (energy, dynamic range, energy trend, brightness) computed from measured features.
+
+There is no database, no overall similarity score, and no support for comparing more than two songs yet.
 
 ## Project overview
 
@@ -84,10 +89,11 @@ Each feature should be understood before it is added.
 
 ## Implemented features (milestone 1, in progress)
 
-- **RMS energy** — computed per ~25ms frame with a manual numpy implementation (`src/song_dna/rms.py`), not `librosa.feature.rms`. Measures loudness at each moment; used to drive the fingerprint's height/intensity dimension. Cannot be negative by construction (square → mean → root).
-- **Spectral centroid** — computed per frame via `librosa.feature.spectral_centroid`. Measures the "brightness" of the sound (weighted average frequency present); independent of loudness — a quiet moment can be bright, a loud moment can be bass-heavy. Intended to drive the fingerprint's texture/color dimension.
+- **RMS energy** — computed per frame (2048-sample window, a new frame every 512 samples, ≈23 ms at librosa's default 22050 Hz) with a manual numpy implementation (`src/song_dna/rms.py`), not `librosa.feature.rms`. Measures loudness at each moment; drives the height of the fingerprint's energy bars above the axis. Cannot be negative by construction (square → mean → root).
+- **Spectral centroid** — computed per frame via `librosa.feature.spectral_centroid`. Measures the "brightness" of the sound (weighted average frequency present); independent of loudness — a quiet moment can be bright, a loud moment can be bass-heavy. Drives the height of the fingerprint's brightness bars below the axis.
+- **Beat times** — detected via `librosa.beat.beat_track` on an 11025 Hz copy of the audio; shown as time-positioned beat markers on the fingerprint.
 
-Both features are frame-aligned (same length, same `times` array) and stored together in the `AudioFeatures` dataclass (`src/song_dna/features.py`), produced by `extract_features()`.
+RMS and centroid are frame-aligned (same length, same `times` array); beat times are sparse timestamps. All are stored together in the `AudioFeatures` dataclass (`src/song_dna/features.py`), produced by `extract_features()`.
 
 ## Song sourcing
 
