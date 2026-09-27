@@ -52,3 +52,56 @@ export async function fetchLibrary() {
 
   return parseLibraryManifest(manifest);
 }
+
+function isFiniteNumberArray(value) {
+  return Array.isArray(value) && value.every(Number.isFinite);
+}
+
+// True when a feature file has what the full Fingerprint and /compare read:
+// frame-aligned, non-empty RMS and centroid arrays, a positive duration, and
+// beat timestamps (a track with no detected beats has an empty list).
+function hasValidFeatures(data) {
+  return (
+    isFiniteNumberArray(data?.rms_energy) &&
+    isFiniteNumberArray(data.spectral_centroid) &&
+    data.rms_energy.length > 0 &&
+    data.rms_energy.length === data.spectral_centroid.length &&
+    Number.isFinite(data.duration_seconds) &&
+    data.duration_seconds > 0 &&
+    isFiniteNumberArray(data.beat_times)
+  );
+}
+
+// Validates a track's precomputed feature file and shapes it like an /analyze
+// response, so SongPanel can treat library and uploaded songs the same way.
+// `audio_url` points at the static library audio; `title` replaces the upload path.
+export function parseTrackFeatures(track, data) {
+  if (!hasValidFeatures(data)) {
+    throw new Error(`The analysis for "${track.title}" isn't in the expected format.`);
+  }
+
+  return { ...data, audio_url: libraryUrl(track.audio), title: track.title };
+}
+
+// Fetches one library track's full features (the same dev-server caveat as
+// fetchLibrary applies: a missing file comes back as index.html with status 200).
+export async function fetchTrackFeatures(track) {
+  const failure = `Couldn't load the analysis for "${track.title}".`;
+
+  let response;
+  try {
+    response = await fetch(libraryUrl(track.features));
+  } catch {
+    throw new Error(failure);
+  }
+  if (!response.ok) throw new Error(failure);
+
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error(failure);
+  }
+
+  return parseTrackFeatures(track, data);
+}

@@ -30,12 +30,13 @@ behaviour. Product boundaries and working rules still apply.
   (default http://127.0.0.1:8000; VITE_API_URL override).
 - App.jsx wraps routes with Theme → Library → Selection providers.
   /library browses/searches/previews tracks and selects A/B.
-  /compare currently uses two upload-based SongPanels and Findings;
-  library selection is not yet connected. Other routes redirect to /library.
+  /compare shows two SongPanels and Findings; when A and B are both selected
+  they start with those library tracks' precomputed features, otherwise they
+  start empty for uploads. Other routes redirect to /library.
 - Contexts/useX hooks live in hooks/use-x.js; providers in
   components/x-provider.jsx. Pure logic belongs in .js modules with colocated
   *.test.js (currently scaling, bucketing, fingerprintLayout, beatThinning,
-  selection, trackFilter, format, lib/library, lib/theme).
+  selection, trackFilter, format, panelLoad, lib/library, lib/theme).
   Fingerprint.jsx, SongPanel.jsx and Findings.jsx live at src/ root.
   components/ui/ is shadcn-generated and lint-ignored.
 - Static library: frontend/public/library/metadata.json + audio/* are inputs;
