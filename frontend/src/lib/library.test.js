@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchLibrary, libraryUrl, parseLibraryManifest } from "./library";
+import {
+  fetchLibrary,
+  fetchTrackFeatures,
+  libraryUrl,
+  parseLibraryManifest,
+  parseTrackFeatures,
+} from "./library";
 
 const goodTrack = {
   id: "dev-pulse",
@@ -75,5 +81,87 @@ describe("fetchLibrary", () => {
       })
     );
     await expect(fetchLibrary()).rejects.toThrow(/Couldn't reach/);
+  });
+});
+
+const goodFeatures = {
+  id: "dev-pulse",
+  duration_seconds: 30,
+  rms_energy: [0.1, 0.2],
+  spectral_centroid: [1000, 1200],
+  beat_times: [0.5],
+};
+
+describe("parseTrackFeatures", () => {
+  it("keeps the measured features and adds the library audio URL and title", () => {
+    expect(parseTrackFeatures(goodTrack, goodFeatures)).toEqual({
+      ...goodFeatures,
+      audio_url: "/library/audio/dev-pulse.mp3",
+      title: "Dev Pulse",
+    });
+  });
+
+  it("accepts a track with no detected beats", () => {
+    expect(parseTrackFeatures(goodTrack, { ...goodFeatures, beat_times: [] }).beat_times).toEqual([]);
+  });
+
+  it("rejects features missing a field the fingerprint needs", () => {
+    expect(() => parseTrackFeatures(goodTrack, null)).toThrow(/expected format/);
+    for (const field of ["rms_energy", "spectral_centroid", "beat_times", "duration_seconds"]) {
+      const missing = { ...goodFeatures, [field]: undefined };
+      expect(() => parseTrackFeatures(goodTrack, missing)).toThrow(/"Dev Pulse"/);
+    }
+  });
+
+  it.each([
+    ["empty RMS and centroid", { rms_energy: [], spectral_centroid: [] }],
+    ["empty centroid", { spectral_centroid: [] }],
+    ["RMS/centroid length mismatch", { spectral_centroid: [1000] }],
+    ["non-numeric RMS value", { rms_energy: [0.1, "0.2"] }],
+    ["null RMS value", { rms_energy: [0.1, null] }],
+    ["NaN centroid value", { spectral_centroid: [1000, NaN] }],
+    ["infinite centroid value", { spectral_centroid: [1000, Infinity] }],
+    ["zero duration", { duration_seconds: 0 }],
+    ["negative duration", { duration_seconds: -5 }],
+    ["infinite duration", { duration_seconds: Infinity }],
+    ["string duration", { duration_seconds: "30" }],
+    ["non-numeric beat time", { beat_times: [0.5, "1.0"] }],
+    ["NaN beat time", { beat_times: [NaN] }],
+    ["beat_times not an array", { beat_times: 0.5 }],
+  ])("rejects malformed feature data: %s", (_name, override) => {
+    expect(() => parseTrackFeatures(goodTrack, { ...goodFeatures, ...override })).toThrow(
+      /expected format/
+    );
+  });
+});
+
+describe("fetchTrackFeatures", () => {
+  it("fetches the track's feature file from the library folder", async () => {
+    stubFetch({ ok: true, status: 200, json: async () => goodFeatures });
+    const features = await fetchTrackFeatures(goodTrack);
+    expect(fetch).toHaveBeenCalledWith("/library/features/dev-pulse.json");
+    expect(features.rms_energy).toEqual(goodFeatures.rms_energy);
+  });
+
+  it("turns HTTP errors, non-JSON bodies and network failures into a readable error", async () => {
+    stubFetch({ ok: false, status: 404, json: async () => ({}) });
+    await expect(fetchTrackFeatures(goodTrack)).rejects.toThrow(/Couldn't load the analysis/);
+
+    stubFetch({
+      ok: true,
+      status: 200,
+      json: async () => {
+        throw new SyntaxError("Unexpected token '<'");
+      },
+    });
+    await expect(fetchTrackFeatures(goodTrack)).rejects.toThrow(/Couldn't load the analysis/);
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("Failed to fetch");
+      })
+    );
+    await expect(fetchTrackFeatures(goodTrack)).rejects.toThrow(/Couldn't load the analysis/);
   });
 });

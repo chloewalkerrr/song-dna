@@ -42,3 +42,12 @@ export function removeSlot(selection, slot) {
 export function clearSelection() {
   return EMPTY_SELECTION;
 }
+
+// The library tracks Compare's Song A / Song B slots start with. Both are
+// filled only when both selected ids exist in the library; otherwise both are
+// null and Compare starts with two empty upload slots.
+export function getCompareTracks(selection, tracks) {
+  const a = tracks.find((track) => track.id === selection.a);
+  const b = tracks.find((track) => track.id === selection.b);
+  return a && b ? { a, b } : { a: null, b: null };
+}

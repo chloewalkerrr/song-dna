@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   EMPTY_SELECTION,
   clearSelection,
+  getCompareTracks,
   getSlot,
   isBlocked,
   isFull,
@@ -64,5 +65,28 @@ describe("selection helpers", () => {
     expect(removeSlot({ a: "x", b: "y" }, "A")).toEqual({ a: null, b: "y" });
     expect(removeSlot({ a: "x", b: "y" }, "B")).toEqual({ a: "x", b: null });
     expect(clearSelection()).toEqual({ a: null, b: null });
+  });
+});
+
+describe("getCompareTracks", () => {
+  const pulse = { id: "pulse", title: "Pulse" };
+  const sweep = { id: "sweep", title: "Sweep" };
+  const tracks = [pulse, sweep];
+  const uploadFlow = { a: null, b: null };
+
+  it("hands two valid selections to the matching A/B slots", () => {
+    expect(getCompareTracks({ a: "pulse", b: "sweep" }, tracks)).toEqual({ a: pulse, b: sweep });
+    expect(getCompareTracks({ a: "sweep", b: "pulse" }, tracks)).toEqual({ a: sweep, b: pulse });
+  });
+
+  it("keeps the upload flow when zero or one track is selected", () => {
+    expect(getCompareTracks(EMPTY_SELECTION, tracks)).toEqual(uploadFlow);
+    expect(getCompareTracks({ a: "pulse", b: null }, tracks)).toEqual(uploadFlow);
+    expect(getCompareTracks({ a: null, b: "sweep" }, tracks)).toEqual(uploadFlow);
+  });
+
+  it("keeps the upload flow when a selected id isn't in the library", () => {
+    expect(getCompareTracks({ a: "pulse", b: "gone" }, tracks)).toEqual(uploadFlow);
+    expect(getCompareTracks({ a: "pulse", b: "sweep" }, [])).toEqual(uploadFlow);
   });
 });
