@@ -64,6 +64,31 @@ To run the frontend tests:
 npm test
 ```
 
+## AI tooling (optional)
+
+Agent instructions live in `AGENTS.md` (shared by all coding agents); `CLAUDE.md` imports it
+and adds Claude Code specifics. Project permissions for Claude Code are in
+`.claude/settings.json`.
+
+Three agent skills are used: `impeccable`, `playwright-cli` and `gh-fix-ci`. The installed copies
+(`.agents/skills/`, `.claude/skills/`) are git-ignored; `skills-lock.json` records where each
+came from. To restore them after cloning:
+
+```powershell
+npx skills experimental_install
+```
+
+Limits to be aware of:
+
+- `skills-lock.json` records each skill's source repository and a content hash, **not** an
+  upstream revision. A restore fetches whatever the source currently contains, so it may differ
+  from the locked copy; the hash only shows that it changed. `experimental_install` is marked
+  experimental by the skills CLI.
+- The `impeccable` skill downloads a helper binary the first time it runs. The lock hash does
+  not cover that binary.
+- The `playwright-cli` skill needs the CLI itself, installed globally and not pinned by this
+  repo: `npm install -g @playwright/cli` (developed against 0.1.21).
+
 ## Planned / not yet built
 
 This is an honest list of what's missing, not a roadmap promise:

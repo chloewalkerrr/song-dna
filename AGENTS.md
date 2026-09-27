@@ -1,4 +1,7 @@
-# SongDNA — instructions for Codex
+# SongDNA — instructions for coding agents
+
+Shared instructions for every coding agent working in this repository (Codex reads
+this file directly; Claude Code imports it from CLAUDE.md).
 
 SongDNA is a single-user, localhost-only audio analysis app: measured energy,
 brightness and beats become visual fingerprints, with explainable two-song findings.
@@ -31,7 +34,10 @@ behaviour. Product boundaries and working rules still apply.
   library selection is not yet connected. Other routes redirect to /library.
 - Contexts/useX hooks live in hooks/use-x.js; providers in
   components/x-provider.jsx. Pure logic belongs in .js modules with colocated
-  *.test.js. Fingerprint.jsx, SongPanel.jsx and Findings.jsx live at src/ root.
+  *.test.js (currently scaling, bucketing, fingerprintLayout, beatThinning,
+  selection, trackFilter, format, lib/library, lib/theme).
+  Fingerprint.jsx, SongPanel.jsx and Findings.jsx live at src/ root.
+  components/ui/ is shadcn-generated and lint-ignored.
 - Static library: frontend/public/library/metadata.json + audio/* are inputs;
   scripts/build_library.py generates features/<id>.json and library.json.
   Browsing/previews need no backend. Current audio is synthetic placeholders.
@@ -63,7 +69,7 @@ python -m venv venv
 # Backend server
 .\venv\Scripts\python.exe -m uvicorn song_dna.api:app --app-dir src --reload
 
-# Backend tests
+# Backend tests (pytest.ini puts . and src on the path)
 .\venv\Scripts\python.exe -m pytest
 
 # Frontend: run from frontend/
@@ -88,7 +94,8 @@ Frontend normally runs at http://localhost:5173; backend at http://127.0.0.1:800
   Finish the small version before expanding.
 - Explain new audio/DSP concepts and architectural choices, including alternatives,
   before implementing them.
-- Every data-bearing visual property must map to a documented measurement.
+- Every data-bearing visual property must map to a documented measurement; no
+  decorative animation pretending to be data.
   Findings must trace to computed numbers; say "similar" for small differences.
   Do not infer genre, emotion or quality.
 - Follow PROJECT_CONTEXT.md scope. Accounts/authentication, streaming APIs,
@@ -98,14 +105,18 @@ Frontend normally runs at http://localhost:5173; backend at http://127.0.0.1:800
 - Match surrounding style. Use Python type hints and named constants for tuned
   values, with comments explaining how values were chosen. Explain why in comments.
 - Keep pure logic outside React components and FastAPI handlers.
-- Import backend modules as song_dna.x, not src.song_dna.x; verify compatibility
-  with uvicorn --app-dir src.
+- Import backend modules as song_dna.x, not src.song_dna.x: pytest and uvicorn
+  resolve the package from different roots, so the src. form passes tests but
+  breaks uvicorn --app-dir src. Verify compatibility with that boot command.
 - Update shadcn-generated components/ui/* through the shadcn CLI, not hand edits.
 - Do not hand-edit library.json or features/*.json. Change source metadata/audio
   or the generator, then rebuild.
 - Update README.md in the same change when documented behaviour changes.
 - Preserve existing user changes. Do not modify unrelated code unless explicitly
   instructed, including to fix unrelated check failures.
+- Do not install, update or remove packages (npm install/ci/update, npx,
+  pip install) or agent skills without the user's approval, unless the user
+  asked for that action.
 
 ## Verification
 
@@ -141,9 +152,17 @@ Frontend normally runs at http://localhost:5173; backend at http://127.0.0.1:800
 
 - Dark by default; light/dark toggle in sidebar footer. Persist songdna-theme
   in localStorage and apply .dark to <html>.
-- Use shadcn components, neutral OKLCH semantic tokens from frontend/src/index.css
-  and Geist Variable. Prefer bg-card, text-muted-foreground and border-border
-  over raw colours, except established feature/slot colours.
+- shadcn/ui is the default design system. Use an existing shadcn component or
+  pattern when one fits; add missing ones with the shadcn CLI (npx needs
+  approval) rather than recreating them by hand. Customise through variants,
+  className and tokens instead of replacing the system.
+- Don't force shadcn where a custom visualization or SongDNA-specific
+  interaction fits better (fingerprints, playhead, A/B selection), and keep
+  SongDNA's visual identity and feature/slot colours. Avoid generic
+  "AI-generated" styling and decoration that carries no information.
+- Use neutral OKLCH semantic tokens from frontend/src/index.css and Geist
+  Variable. Prefer bg-card, text-muted-foreground and border-border over raw
+  colours, except established feature/slot colours.
 - Full fingerprint and legend: energy violet-500 above the axis, brightness
   cyan-500 below; beats foreground/50, playhead foreground.
 - Selection: A violet-500, B blue-500. Mini fingerprints currently use neutral
@@ -156,4 +175,5 @@ Frontend normally runs at http://localhost:5173; backend at http://127.0.0.1:800
 - Show plain-language errors in destructive Alerts; use skeletons or muted
   monospace text for loading.
 - Give interactive elements accessible names and keyboard focus states.
-  Use appropriate aria-pressed/status semantics; never nest buttons.
+  Use appropriate aria-pressed/status semantics; never nest buttons (library
+  cards use a card-wide button overlay with a raised play button).
