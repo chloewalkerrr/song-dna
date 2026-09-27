@@ -219,3 +219,10 @@ __marimo__/
 
 # Audio data (large files, not for version control)
 data/
+
+# Playwright CLI snapshots, logs and screenshots
+.playwright-cli/
+
+# Installed agent skills (reproducible from skills-lock.json)
+.agents/skills/
+.claude/skills/
