@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { AudioLines, GitCompareArrows, LibraryBig, Moon, Sun } from "lucide-react";
+import { GitCompareArrows, LibraryBig, Moon, Sun } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -10,6 +10,8 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { useTheme } from "@/hooks/use-theme";
 
@@ -18,26 +20,33 @@ const NAV_ITEMS = [
   { to: "/compare", label: "Compare", icon: GitCompareArrows },
 ];
 
-function AppSidebar() {
+// Plain-text product name. Also used in AppLayout's top bar.
+export function Wordmark() {
+  return (
+    <Link
+      to="/library"
+      className="rounded-md px-2 py-1 text-base font-semibold tracking-tight outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      SongDNA
+    </Link>
+  );
+}
+
+// `triggerRef` lets AppLayout move focus to this toggle when the sidebar reopens.
+function AppSidebar({ triggerRef }) {
   const { pathname } = useLocation();
   const { theme, toggle } = useTheme();
+  const { isMobile, state } = useSidebar();
   const isDark = theme === "dark";
+  // Collapsed on desktop, the sidebar slides off-screen but stays in the DOM.
+  // Keep its toggle out of the Tab order then; the top bar's toggle replaces it.
+  const triggerHidden = !isMobile && state === "collapsed";
 
   return (
     <Sidebar>
-      <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
-              <Link to="/library">
-                <div className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                  <AudioLines className="size-4" />
-                </div>
-                <span className="text-base font-semibold tracking-tight">SongDNA</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+      <SidebarHeader className="h-12 flex-row items-center justify-between md:h-24">
+        <Wordmark />
+        <SidebarTrigger ref={triggerRef} tabIndex={triggerHidden ? -1 : undefined} />
       </SidebarHeader>
 
       <SidebarContent>
