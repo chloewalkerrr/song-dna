@@ -1,8 +1,8 @@
 import { Pause, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import MiniFingerprint from "@/components/MiniFingerprint";
 import SlotBadge from "@/components/SlotBadge";
+import SongFingerprint from "@/components/SongFingerprint";
 import { formatDuration } from "@/format";
 import { cn } from "@/lib/utils";
 
@@ -34,8 +34,10 @@ function SongCard({ track, slot, blocked, playing, onSelect, onTogglePlay }) {
         />
 
         <CardContent className="pointer-events-none relative z-10 flex flex-col gap-3">
+          {/* Song Fingerprint thumbnail at its native 52 px. Neutral in every
+              state: selection is shown by the card outline and slot badge. */}
           <div className="relative">
-            <MiniFingerprint preview={track.preview} tone={slot ?? "neutral"} />
+            <SongFingerprint fingerprint={track.fingerprint} className="size-13 text-foreground/75" />
             {slot && <SlotBadge slot={slot} className="absolute -top-1 right-0" />}
           </div>
 
