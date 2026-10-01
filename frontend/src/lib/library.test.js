@@ -5,6 +5,7 @@ import {
   libraryUrl,
   parseLibraryManifest,
   parseTrackFeatures,
+  resolveFeatureLoad,
 } from "./library";
 
 const goodTrack = {
@@ -163,5 +164,62 @@ describe("fetchTrackFeatures", () => {
       })
     );
     await expect(fetchTrackFeatures(goodTrack)).rejects.toThrow(/Couldn't load the analysis/);
+  });
+});
+
+describe("resolveFeatureLoad", () => {
+  const trackA = { id: "a" };
+  const trackB = { id: "b" };
+  const noResult = { tracks: null, byId: new Map(), failedIds: [] };
+
+  it("treats a valid empty manifest as ready, with nothing loaded or failed", () => {
+    const tracks = parseLibraryManifest({ tracks: [] });
+    expect(resolveFeatureLoad(tracks, noResult)).toEqual({
+      status: "ready",
+      byId: new Map(),
+      failedIds: [],
+    });
+  });
+
+  it("is loading while a populated library has no result yet", () => {
+    expect(resolveFeatureLoad([trackA, trackB], noResult)).toEqual({
+      status: "loading",
+      byId: new Map(),
+      failedIds: [],
+    });
+  });
+
+  it("is ready with every track's features once they have all loaded", () => {
+    const tracks = [trackA, trackB];
+    const byId = new Map([["a", { x: 1 }], ["b", { x: 2 }]]);
+    const state = resolveFeatureLoad(tracks, { tracks, byId, failedIds: [] });
+    expect(state.status).toBe("ready");
+    expect(state.byId).toBe(byId);
+    expect(state.failedIds).toEqual([]);
+  });
+
+  it("keeps partial failures: loaded tracks in byId, failed ids listed", () => {
+    const tracks = [trackA, trackB];
+    const state = resolveFeatureLoad(tracks, {
+      tracks,
+      byId: new Map([["a", { x: 1 }]]),
+      failedIds: ["b"],
+    });
+    expect(state.status).toBe("ready");
+    expect([...state.byId.keys()]).toEqual(["a"]);
+    expect(state.failedIds).toEqual(["b"]);
+  });
+
+  it("is ready with nothing loaded when every track failed", () => {
+    const tracks = [trackA, trackB];
+    const state = resolveFeatureLoad(tracks, { tracks, byId: new Map(), failedIds: ["a", "b"] });
+    expect(state.status).toBe("ready");
+    expect(state.byId.size).toBe(0);
+    expect(state.failedIds).toEqual(["a", "b"]);
+  });
+
+  it("counts a result for an older track list as still loading", () => {
+    const result = { tracks: [trackA], byId: new Map([["a", { x: 1 }]]), failedIds: [] };
+    expect(resolveFeatureLoad([trackA, trackB], result).status).toBe("loading");
   });
 });

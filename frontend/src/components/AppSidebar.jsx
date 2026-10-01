@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { GitCompareArrows, LibraryBig, Moon, Sun } from "lucide-react";
+import { GitCompareArrows, House, LibraryBig, Moon, Sun } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -16,15 +16,22 @@ import {
 import { useTheme } from "@/hooks/use-theme";
 
 const NAV_ITEMS = [
+  { to: "/", label: "Home", icon: House },
   { to: "/library", label: "Library", icon: LibraryBig },
   { to: "/compare", label: "Compare", icon: GitCompareArrows },
 ];
+
+// Home ("/") would prefix-match every route, so it only counts as active
+// on an exact match; other items also stay active on their sub-paths.
+function isActivePath(pathname, to) {
+  return to === "/" ? pathname === "/" : pathname.startsWith(to);
+}
 
 // Plain-text product name. Also used in AppLayout's top bar.
 export function Wordmark() {
   return (
     <Link
-      to="/library"
+      to="/"
       className="rounded-md px-2 py-1 text-base font-semibold tracking-tight outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       SongDNA
@@ -55,7 +62,7 @@ function AppSidebar({ triggerRef }) {
             <SidebarMenu>
               {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
                 <SidebarMenuItem key={to}>
-                  <SidebarMenuButton asChild isActive={pathname.startsWith(to)}>
+                  <SidebarMenuButton asChild isActive={isActivePath(pathname, to)}>
                     <Link to={to}>
                       <Icon />
                       <span>{label}</span>

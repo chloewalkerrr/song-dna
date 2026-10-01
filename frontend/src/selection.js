@@ -43,6 +43,14 @@ export function clearSelection() {
   return EMPTY_SELECTION;
 }
 
+// Fills both slots at once (Home's "Open in Compare"), replacing any current
+// picks. A pair needs two different tracks; anything else leaves the
+// selection empty rather than half-filled.
+export function selectPair(a, b) {
+  if (!a || !b || a === b) return EMPTY_SELECTION;
+  return { a, b };
+}
+
 // The library tracks Compare's Song A / Song B slots start with. Both are
 // filled only when both selected ids exist in the library; otherwise both are
 // null and Compare starts with two empty upload slots.

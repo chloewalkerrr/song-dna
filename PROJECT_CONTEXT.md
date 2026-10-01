@@ -4,8 +4,9 @@
 
 Most of this document describes Song DNA's overall concept and long-term vision — much of it is aspirational rather than built. For what's actually running today, see [`README.md`](README.md), which is kept up to date with the real codebase.
 
-In short: the current app has a Python/FastAPI backend (RMS energy computed manually via numpy, spectral centroid and beat tracking via librosa) and a React/Vite frontend styled with Tailwind CSS and shadcn/ui, dark by default with a light/dark toggle. It has two pages:
+In short: the current app has a Python/FastAPI backend (RMS energy computed manually via numpy, spectral centroid and beat tracking via librosa) and a React/Vite frontend styled with Tailwind CSS and shadcn/ui, dark by default with a light/dark toggle. It has three pages:
 
+- **Home** — an introduction built around one real library track drawn as an annotated figure, with a library index and a small two-track preview that leads into Compare.
 - **Library** — browses a small static library of precomputed tracks (currently synthetic placeholder audio), with search, genre filters, mini-fingerprint previews and Song A / Song B selection. Choosing Compare with both slots filled opens Compare with those two tracks loaded from their precomputed features.
 - **Compare** — two songs, either the two tracks selected in the Library or uploaded files (an upload can also replace a library track), are rendered as segmented dual-strand fingerprints on a shared scale, and described by a small set of rule-based findings (energy, dynamic range, energy trend, brightness) computed from measured features.
 

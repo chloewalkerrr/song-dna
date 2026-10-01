@@ -46,9 +46,9 @@ quality. The real data and its visualisation are the interesting part, not styli
   backend at `127.0.0.1:8000`.
 - Library browsing and previews work from static precomputed files with no backend;
   uploads and findings need the backend running.
-- Routes today: Library (browse, search, preview, pick Song A / Song B) and Compare
-  (two fingerprints on a shared scale, playback, findings). A Home / Explore page is
-  planned as a concise visual introduction that leads into Library and Compare.
+- Routes today: Home (a concise visual introduction built around one real track,
+  leading into Library and Compare), Library (browse, search, preview, pick Song A /
+  Song B) and Compare (two fingerprints on a shared scale, playback, findings).
 
 ## Capabilities and Constraints
 

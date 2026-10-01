@@ -1,6 +1,15 @@
 // Pure layout math for the fingerprint chart. The chart is drawn at whatever
 // pixel width its container has, so nothing here assumes a fixed width.
 
+// Number of visual bars the fingerprint is drawn with, regardless of how
+// many analysis frames the song actually has. Chosen empirically: a typical
+// song has thousands of frames (~43/sec at the analysis hop length used),
+// far too many to render as distinct bars. 40 keeps each bar wide enough to
+// read as a discrete "DNA segment" rather than a blur, while still being
+// enough bars to show the song's large-scale shape (intro build-up, a loud
+// chorus, a quiet bridge) rather than collapsing it into a handful of blocks.
+export const SEGMENT_COUNT = 40;
+
 // Fraction of each segment's cell that the bar itself fills; the rest is the
 // gap between bars.
 const BAR_WIDTH_RATIO = 0.7;

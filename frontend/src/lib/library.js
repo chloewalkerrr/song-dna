@@ -105,3 +105,14 @@ export async function fetchTrackFeatures(track) {
 
   return parseTrackFeatures(track, data);
 }
+
+// Where loading every library track's features stands, given the current track
+// list and the last completed load (`result.tracks` is the list it was for).
+// An empty list has nothing to load, so it is ready straight away rather than
+// waiting for a load that never starts. A result for a different (older) list
+// still counts as loading.
+export function resolveFeatureLoad(tracks, result) {
+  if (tracks.length === 0) return { status: "ready", byId: new Map(), failedIds: [] };
+  if (result.tracks !== tracks) return { status: "loading", byId: new Map(), failedIds: [] };
+  return { status: "ready", byId: result.byId, failedIds: result.failedIds };
+}
