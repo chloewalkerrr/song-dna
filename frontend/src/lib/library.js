@@ -1,4 +1,5 @@
 import { LIBRARY_BASE } from "./config";
+import { attachFingerprints, parseFingerprintSummary, parseThumbs } from "./songFingerprint";
 
 const REQUIRED_TRACK_FIELDS = ["id", "title", "genre", "audio", "features"];
 
@@ -50,7 +51,22 @@ export async function fetchLibrary() {
     throw new Error("The song library file wasn't found or isn't valid JSON.");
   }
 
-  return parseLibraryManifest(manifest);
+  const tracks = parseLibraryManifest(manifest);
+  const summary = parseFingerprintSummary(manifest.song_fingerprint);
+  const thumbs = summary.ok ? await fetchFingerprintThumbs(summary) : null;
+  return attachFingerprints(tracks, summary, thumbs);
+}
+
+// Song Fingerprints are optional: if thumbs.json can't be loaded or parsed,
+// the library still works and cards show "no fingerprint" instead.
+async function fetchFingerprintThumbs(summary) {
+  try {
+    const response = await fetch(libraryUrl(summary.thumbsPath));
+    if (!response.ok) return null;
+    return parseThumbs(await response.json(), summary);
+  } catch {
+    return null;
+  }
 }
 
 function isFiniteNumberArray(value) {

@@ -1,5 +1,15 @@
 {
   "version": 1,
+  "song_fingerprint": {
+    "version": "E1B1/1",
+    "params_hash": "9e2c3876c5ed81c46b7c97987dc2b3eb90c812da9eb031bcda3fbf0ebaa5366b",
+    "librosa_version": "0.11.0",
+    "dref": 0.005909040273794664,
+    "corpus_id": "2e1a85551d734edfe264112a554a062d322a724b45676073e5cf7fb01a7b2d12",
+    "thumbs": "fingerprints/thumbs.json",
+    "thumb_view_box": "0 0 52 52",
+    "hero_view_box": "0 0 220 220"
+  },
   "tracks": [
     {
       "id": "dev-pulse",
@@ -111,7 +121,10 @@
           0.186
         ]
       },
-      "description": "Synthetic placeholder: steady 120 BPM kick and hats with flat energy."
+      "description": "Synthetic placeholder: steady 120 BPM kick and hats with flat energy.",
+      "song_fingerprint": {
+        "artifact": "fingerprints/dev-pulse.json"
+      }
     },
     {
       "id": "dev-slow-build",
@@ -223,7 +236,10 @@
           1.0
         ]
       },
-      "description": "Synthetic placeholder: a soft pad that swells and brightens, with a late gentle pulse."
+      "description": "Synthetic placeholder: a soft pad that swells and brightens, with a late gentle pulse.",
+      "song_fingerprint": {
+        "artifact": "fingerprints/dev-slow-build.json"
+      }
     },
     {
       "id": "dev-fade-out",
@@ -335,7 +351,10 @@
           0.324
         ]
       },
-      "description": "Synthetic placeholder: loud, bright 140 BPM hits decaying to near-silence."
+      "description": "Synthetic placeholder: loud, bright 140 BPM hits decaying to near-silence.",
+      "song_fingerprint": {
+        "artifact": "fingerprints/dev-fade-out.json"
+      }
     },
     {
       "id": "dev-sections",
@@ -447,7 +466,10 @@
           0.082
         ]
       },
-      "description": "Synthetic placeholder: quiet pad, loud groove, quiet pad - three distinct sections."
+      "description": "Synthetic placeholder: quiet pad, loud groove, quiet pad - three distinct sections.",
+      "song_fingerprint": {
+        "artifact": "fingerprints/dev-sections.json"
+      }
     },
     {
       "id": "dev-sweep",
@@ -559,7 +581,10 @@
           0.739
         ]
       },
-      "description": "Synthetic placeholder: repeating low-to-high chirps with a slow loudness swell."
+      "description": "Synthetic placeholder: repeating low-to-high chirps with a slow loudness swell.",
+      "song_fingerprint": {
+        "artifact": "fingerprints/dev-sweep.json"
+      }
     }
   ]
 }

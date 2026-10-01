@@ -55,7 +55,76 @@ describe("parseLibraryManifest", () => {
 describe("fetchLibrary", () => {
   it("returns the validated tracks on success", async () => {
     stubFetch({ ok: true, status: 200, json: async () => ({ tracks: [goodTrack] }) });
-    await expect(fetchLibrary()).resolves.toEqual([goodTrack]);
+    await expect(fetchLibrary()).resolves.toEqual([
+      { ...goodTrack, fingerprint: { status: "unavailable", reason: "missing" } },
+    ]);
+  });
+
+  describe("with Song Fingerprints", () => {
+    const identity = {
+      version: "E1B1/1",
+      params_hash: "9e2c3876c5ed81c46b7c97987dc2b3eb90c812da9eb031bcda3fbf0ebaa5366b",
+      librosa_version: "0.11.0",
+      dref: 0.005909040273794664,
+      corpus_id: "2e1a85551d734edfe264112a554a062d322a724b45676073e5cf7fb01a7b2d12",
+    };
+    const summary = { ...identity, thumbs: "fingerprints/thumbs.json", thumb_view_box: "0 0 52 52" };
+    const manifest = {
+      tracks: [{ ...goodTrack, song_fingerprint: { artifact: "fingerprints/dev-pulse.json" } }],
+      song_fingerprint: summary,
+    };
+    const thumbs = { ...identity, view_box: "0 0 52 52", thumbs: { "dev-pulse": "M1.0 2.0L3.0 4.0" } };
+
+    // Serves library.json (optionally a different one), and `thumbsResponse` for thumbs.json.
+    function stubLibrary(thumbsResponse, libraryManifest = manifest) {
+      const fetchMock = vi.fn(async (url) =>
+        url.endsWith("library.json")
+          ? { ok: true, status: 200, json: async () => libraryManifest }
+          : thumbsResponse()
+      );
+      vi.stubGlobal("fetch", fetchMock);
+      return fetchMock;
+    }
+
+    it("attaches each track's thumbnail path from thumbs.json", async () => {
+      const fetchMock = stubLibrary(() => ({ ok: true, status: 200, json: async () => thumbs }));
+      const [track] = await fetchLibrary();
+
+      expect(fetchMock).toHaveBeenCalledWith("/library/fingerprints/thumbs.json");
+      expect(track.fingerprint).toEqual({ status: "available", path: "M1.0 2.0L3.0 4.0", viewBox: "0 0 52 52" });
+    });
+
+    it("still returns the library when thumbs.json is missing, invalid or unreachable", async () => {
+      const failures = [
+        () => ({ ok: false, status: 404, json: async () => ({}) }),
+        () => ({ ok: true, status: 200, json: async () => { throw new SyntaxError("Unexpected token '<'"); } }),
+        () => { throw new TypeError("Failed to fetch"); },
+      ];
+      for (const failure of failures) {
+        stubLibrary(failure);
+        const [track] = await fetchLibrary();
+        expect(track.fingerprint).toEqual({ status: "unavailable", reason: "malformed" });
+      }
+    });
+
+    it("still returns the library when the fingerprint view box is malformed (even one that throws when coerced)", async () => {
+      const throwsOnCoercion = JSON.parse('{"toString": 1}');
+      for (const viewBox of [throwsOnCoercion, 52, "0 0 0 0"]) {
+        const fetchMock = stubLibrary(
+          () => ({ ok: true, status: 200, json: async () => thumbs }),
+          { ...manifest, song_fingerprint: { ...summary, thumb_view_box: viewBox } }
+        );
+        const [track] = await fetchLibrary();
+        expect(track.fingerprint).toEqual({ status: "unavailable", reason: "malformed" });
+        expect(fetchMock).toHaveBeenCalledTimes(1); // thumbs.json isn't even requested
+      }
+    });
+
+    it("doesn't show thumbnails from a different build than the manifest", async () => {
+      stubLibrary(() => ({ ok: true, status: 200, json: async () => ({ ...thumbs, corpus_id: "f".repeat(64) }) }));
+      const [track] = await fetchLibrary();
+      expect(track.fingerprint).toEqual({ status: "unavailable", reason: "malformed" });
+    });
   });
 
   it("treats an HTTP error as a failure", async () => {

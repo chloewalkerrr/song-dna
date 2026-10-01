@@ -39,12 +39,14 @@ behaviour. Product boundaries and working rules still apply.
 - Contexts/useX hooks live in hooks/use-x.js; providers in
   components/x-provider.jsx. Pure logic belongs in .js modules with colocated
   *.test.js (currently scaling, bucketing, fingerprintLayout, beatThinning,
-  selection, trackFilter, format, panelLoad, specimen, lib/library, lib/theme).
+  selection, trackFilter, format, panelLoad, specimen, lib/library,
+  lib/songFingerprint, lib/theme).
   Fingerprint.jsx, FingerprintStrands.jsx (the shared SVG strand renderer),
   SongPanel.jsx and Findings.jsx live at src/ root.
   components/ui/ is shadcn-generated and lint-ignored.
 - Static library: frontend/public/library/metadata.json + audio/* are inputs;
-  scripts/build_library.py generates features/<id>.json and library.json.
+  scripts/build_library.py generates features/<id>.json, fingerprints/*.json
+  and library.json.
   Browsing/previews need no backend. Current audio is synthetic placeholders.
   No SQLite persistence is implemented.
 
@@ -57,7 +59,14 @@ behaviour. Product boundaries and working rules still apply.
 - Full comparison uses shared scales across both songs: true maximum for RMS,
   shared 95th percentile for centroid, with clamped bars.
 - Library previews use 48 segments and per-track normalization; they do not
-  represent cross-song magnitude comparisons.
+  represent cross-song magnitude comparisons. They are still generated but no
+  longer shown on cards.
+- Song Fingerprint (E1B1/1, src/song_dna/song_fingerprint/) is a separate
+  whole-track identity layer, not a replacement for Song DNA. Its parameters
+  are frozen and must reproduce the research reference exactly
+  (tests/test_song_fingerprint_parity.py); changing any requires a new
+  version. It never changes DNA RMS/centroid arrays. Library cards show the
+  52 px thumbnail; it is not yet in Compare, /analyze or uploads.
 - Full fingerprints use 40 segments. Bucketing and beat-marker thinning are
   display-only; never alter analysis data for presentation.
 
@@ -170,9 +179,9 @@ Frontend normally runs at http://localhost:5173; backend at http://127.0.0.1:800
   colours, except established feature/slot colours.
 - Full fingerprint and legend: energy violet-500 above the axis, brightness
   cyan-500 below; beats foreground/50, playhead foreground.
-- Selection: A violet-500, B blue-500. Mini fingerprints currently use neutral
-  tones when unselected and slot-coloured tones when selected; preserve this
-  distinction unless a design change is requested.
+- Selection: A violet-500, B blue-500. Library cards show the Song
+  Fingerprint (SongFingerprint.jsx), which stays neutral/monochrome in every
+  state; selection is shown by the card outline and slot badge only.
 - Preserve the sidebar shell and page pattern: mx-auto max-w-[920px],
   text-3xl font-semibold tracking-tight headings, muted subtitles.
 - Write complete Tailwind class strings, using lookup objects rather than
