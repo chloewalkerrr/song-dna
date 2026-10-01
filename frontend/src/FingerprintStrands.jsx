@@ -20,6 +20,25 @@ const TONES = {
   muted: { energy: "fill-foreground/40", brightness: "fill-foreground/20" },
 };
 
+// The "instrument" variant (Home): the same measurements drawn in neutral ink,
+// with energy and brightness told apart by form, not colour - solid bars rise
+// for energy, open (outlined) bars hang for brightness - so the two strands
+// stay distinct in greyscale and for colour-blind readers. Bars fill 30% of
+// each cell (chosen in the Home design mockup: thin enough that the outline of
+// a brightness bar reads as open at the 40-segment widths Home uses).
+// The playhead is the one warm accent: the ochre "now" token (index.css)
+// marks where playback is.
+// `tone` doesn't apply to this variant.
+const INSTRUMENT_BAR_WIDTH_RATIO = 0.3;
+const INSTRUMENT = {
+  energy: "fill-foreground",
+  brightness: "fill-none stroke-foreground/75",
+  beat: "stroke-muted-foreground",
+  playhead: "stroke-now",
+};
+// Beat ticks run from the top edge down this far, in pixels.
+const BEAT_TICK_LENGTH = 6;
+
 // The dual-strand fingerprint itself, drawn at an explicit pixel size:
 // energy (RMS) bars rise above the centre line, brightness (spectral
 // centroid) bars hang below it, both averaged into SEGMENT_COUNT slices and
@@ -35,12 +54,18 @@ function FingerprintStrands({
   showPlayhead = true,
   showBeats = true,
   tone = "data",
+  variant = "default",
 }) {
   const centerY = height / 2;
   const halfHeight = height / 2;
   const classes = TONES[tone];
+  const instrument = variant === "instrument";
 
-  const { cellWidth, barWidth } = getSegmentLayout(width, SEGMENT_COUNT);
+  const { cellWidth, barWidth } = getSegmentLayout(
+    width,
+    SEGMENT_COUNT,
+    instrument ? INSTRUMENT_BAR_WIDTH_RATIO : undefined
+  );
 
   const energySegments = bucketAverage(features.rms_energy, SEGMENT_COUNT);
   const brightnessSegments = bucketAverage(features.spectral_centroid, SEGMENT_COUNT);
@@ -63,6 +88,19 @@ function FingerprintStrands({
       {energySegments.map((value, i) => {
         const barHeight = computeBarHeight(value, rmsMax, halfHeight);
         const x = i * cellWidth + (cellWidth - barWidth) / 2;
+        if (instrument) {
+          // Square ends, snapped to whole pixels (display only) so thin bars stay crisp.
+          return (
+            <rect
+              key={`energy-${i}`}
+              x={Math.round(x)}
+              y={centerY - barHeight}
+              width={barWidth}
+              height={barHeight}
+              className={INSTRUMENT.energy}
+            />
+          );
+        }
         return (
           <rect
             key={`energy-${i}`}
@@ -79,6 +117,21 @@ function FingerprintStrands({
       {brightnessSegments.map((value, i) => {
         const barHeight = computeBarHeight(value, centroidMax, halfHeight);
         const x = i * cellWidth + (cellWidth - barWidth) / 2;
+        if (instrument) {
+          // A 1px outline drawn half a pixel inside the bar's box, so the open
+          // bar has the same outer width and length as a solid one would.
+          return (
+            <rect
+              key={`brightness-${i}`}
+              x={Math.round(x) + 0.5}
+              y={centerY + 0.5}
+              width={Math.max(barWidth - 1, 0)}
+              height={Math.max(barHeight - 1, 0)}
+              strokeWidth="1"
+              className={INSTRUMENT.brightness}
+            />
+          );
+        }
         return (
           <rect
             key={`brightness-${i}`}
@@ -92,19 +145,29 @@ function FingerprintStrands({
         );
       })}
 
-      {displayedBeatTimes.map((beatTime, i) => (
-        <circle
-          key={`beat-${i}`}
-          cx={timeToX(beatTime, features.duration_seconds, width)}
-          cy={4}
-          r={3}
-          className="fill-foreground/50"
-        />
-      ))}
+      {displayedBeatTimes.map((beatTime, i) => {
+        const beatX = timeToX(beatTime, features.duration_seconds, width);
+        return instrument ? (
+          <line
+            key={`beat-${i}`}
+            x1={beatX}
+            y1={0}
+            x2={beatX}
+            y2={BEAT_TICK_LENGTH}
+            strokeWidth="1"
+            className={INSTRUMENT.beat}
+          />
+        ) : (
+          <circle key={`beat-${i}`} cx={beatX} cy={4} r={3} className="fill-foreground/50" />
+        );
+      })}
 
-      {showPlayhead && (
-        <line x1={playheadX} y1={0} x2={playheadX} y2={height} className="stroke-foreground" strokeWidth="1" />
-      )}
+      {showPlayhead &&
+        (instrument ? (
+          <line x1={playheadX} y1={0} x2={playheadX} y2={height} className={INSTRUMENT.playhead} strokeWidth="1.5" />
+        ) : (
+          <line x1={playheadX} y1={0} x2={playheadX} y2={height} className="stroke-foreground" strokeWidth="1" />
+        ))}
     </svg>
   );
 }

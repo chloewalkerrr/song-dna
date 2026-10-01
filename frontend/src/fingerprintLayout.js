@@ -23,10 +23,11 @@ export function computeBarHeight(value, max, halfHeight) {
   return Math.min(rawHeight, halfHeight);
 }
 
-// Width of one segment's cell and of the bar drawn inside it.
-export function getSegmentLayout(width, segmentCount) {
+// Width of one segment's cell and of the bar drawn inside it. `barWidthRatio`
+// lets a thinner style use the same cells; the default is the standard chart's.
+export function getSegmentLayout(width, segmentCount, barWidthRatio = BAR_WIDTH_RATIO) {
   const cellWidth = width / segmentCount;
-  return { cellWidth, barWidth: cellWidth * BAR_WIDTH_RATIO };
+  return { cellWidth, barWidth: cellWidth * barWidthRatio };
 }
 
 // Maps a moment in the song to an x position. Used for both the playhead and

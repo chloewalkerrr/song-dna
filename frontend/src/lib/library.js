@@ -1,5 +1,12 @@
 import { LIBRARY_BASE } from "./config";
-import { attachFingerprints, parseFingerprintSummary, parseThumbs } from "./songFingerprint";
+import {
+  attachFingerprints,
+  isValidHeroArtifact,
+  parseFingerprintSummary,
+  parseHero,
+  parseThumbs,
+  UNAVAILABLE,
+} from "./songFingerprint";
 
 const REQUIRED_TRACK_FIELDS = ["id", "title", "genre", "audio", "features"];
 
@@ -66,6 +73,30 @@ async function fetchFingerprintThumbs(summary) {
     return parseThumbs(await response.json(), summary);
   } catch {
     return null;
+  }
+}
+
+// Loads one track's large (hero) Song Fingerprint:
+//   { status: "available", path, viewBox, frames }  or  { status: "unavailable", reason }
+// Never throws. A track whose fingerprint is already unavailable keeps that
+// reason and nothing is requested; a hero file that can't be loaded, or that
+// doesn't match the track and its thumbnail's build, is "malformed". The
+// library itself is never affected - this is loaded separately, on demand.
+export async function fetchFingerprintHero(track) {
+  const fingerprint = track?.fingerprint;
+  if (fingerprint?.status !== "available") {
+    return { status: "unavailable", reason: fingerprint?.reason || UNAVAILABLE.missing };
+  }
+  const malformed = { status: "unavailable", reason: UNAVAILABLE.malformed };
+  if (!isValidHeroArtifact(fingerprint.heroArtifact, track)) return malformed;
+
+  try {
+    const response = await fetch(libraryUrl(fingerprint.heroArtifact));
+    if (!response.ok) return malformed;
+    const hero = parseHero(await response.json(), track, fingerprint.identity);
+    return hero ? { status: "available", ...hero } : malformed;
+  } catch {
+    return malformed;
   }
 }
 
