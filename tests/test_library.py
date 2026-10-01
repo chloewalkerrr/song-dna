@@ -1,11 +1,15 @@
+import hashlib
 import json
 from pathlib import Path
 
+import librosa
 import numpy as np
 import pytest
 import soundfile as sf
 
 from song_dna.features import AudioFeatures
+from song_dna.song_fingerprint import FINGERPRINT_VERSION, measure_file, params_hash
+from song_dna.song_fingerprint.artifacts import corpus_id
 from song_dna.library import (
     PREVIEW_SEGMENTS,
     bucket_average,
@@ -238,6 +242,121 @@ def test_build_library_fails_fast_on_missing_audio_without_writing_anything(smal
 
     assert not (small_library / "library.json").exists()
     assert not (small_library / "features").exists()
+    assert not (small_library / "fingerprints").exists()
+
+
+# --- Song Fingerprint artifacts ---------------------------------------------------
+
+
+def read_json(path):
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def test_build_library_adds_song_fingerprints_without_changing_existing_fields(small_library):
+    build_library(small_library)
+    manifest = read_json(small_library / "library.json")
+
+    # Additive: the manifest version, DNA features and preview are all still there.
+    assert manifest["version"] == 1
+    for entry in manifest["tracks"]:
+        assert {"audio", "features", "preview", "duration_seconds", "tempo_bpm"} <= entry.keys()
+
+    summary = manifest["song_fingerprint"]
+    assert summary["version"] == FINGERPRINT_VERSION
+    assert summary["params_hash"] == params_hash()
+    assert summary["librosa_version"] == librosa.__version__
+    assert summary["thumbs"] == "fingerprints/thumbs.json"
+    assert summary["thumb_view_box"] == "0 0 52 52"
+    assert summary["hero_view_box"] == "0 0 220 220"
+    assert len(summary["corpus_id"]) == 64
+
+    thumbs = read_json(small_library / summary["thumbs"])
+    assert thumbs["version"] == FINGERPRINT_VERSION
+    assert thumbs["corpus_id"] == summary["corpus_id"]
+    assert thumbs["dref"] == summary["dref"]
+
+    for entry in manifest["tracks"]:
+        ref = entry["song_fingerprint"]
+        assert ref == {"artifact": f"fingerprints/{entry['id']}.json"}
+        hero = read_json(small_library / ref["artifact"])
+        assert hero["id"] == entry["id"]
+        assert hero["version"] == FINGERPRINT_VERSION
+        assert hero["dref"] == summary["dref"]
+        assert hero["corpus_id"] == summary["corpus_id"]
+        assert hero["view_box"] == "0 0 220 220"
+        assert hero["hero"].startswith("M")
+        assert thumbs["thumbs"][entry["id"]].startswith("M")
+        # The hero path is kept out of the lightweight manifest.
+        assert "hero" not in entry
+
+
+def test_build_library_renders_every_track_from_one_dref_of_1_2_times_the_densest_cell(small_library):
+    build_library(small_library)
+    manifest = read_json(small_library / "library.json")
+
+    densities = [
+        measure_file(str(small_library / "audio" / name)).density for name in ("one.wav", "two.wav")
+    ]
+    assert manifest["song_fingerprint"]["dref"] == 1.2 * max(float(d.max()) for d in densities)
+
+
+def test_build_library_corpus_id_changes_when_audio_changes(small_library):
+    build_library(small_library)
+    before = read_json(small_library / "library.json")["song_fingerprint"]["corpus_id"]
+
+    write_click_wav(small_library / "audio" / "two.wav", bpm=100)
+    build_library(small_library)
+    after = read_json(small_library / "library.json")["song_fingerprint"]["corpus_id"]
+
+    assert after != before
+
+
+def test_build_library_removes_stale_fingerprint_files(small_library):
+    fingerprints_dir = small_library / "fingerprints"
+    fingerprints_dir.mkdir()
+    (fingerprints_dir / "removed-track.json").write_text("{}", encoding="utf-8")
+
+    build_library(small_library)
+
+    assert not (fingerprints_dir / "removed-track.json").exists()
+    assert sorted(p.name for p in fingerprints_dir.glob("*.json")) == ["one.json", "thumbs.json", "two.json"]
+
+
+def test_build_library_represents_an_all_silent_track_as_unavailable(small_library):
+    build_library(small_library)
+    dref_without_silence = read_json(small_library / "library.json")["song_fingerprint"]["dref"]
+
+    sf.write(small_library / "audio" / "quiet.wav", np.zeros(22050 * 3), 22050)
+    metadata = read_json(small_library / "metadata.json")
+    write_metadata(small_library, metadata + [{"id": "quiet", "title": "Quiet", "genre": "Ambient", "file": "quiet.wav"}])
+    # A fingerprint left over from an earlier build must not survive.
+    (small_library / "fingerprints" / "quiet.json").write_text("{}", encoding="utf-8")
+
+    build_library(small_library)
+    manifest = read_json(small_library / "library.json")
+    quiet = next(t for t in manifest["tracks"] if t["id"] == "quiet")
+
+    assert quiet["song_fingerprint"]["artifact"] is None
+    assert quiet["song_fingerprint"]["unavailable_reason"] == "no_voiced_frames"
+    assert quiet["song_fingerprint"]["voiced_frames"] == 0
+    assert "quiet" not in read_json(small_library / "fingerprints" / "thumbs.json")["thumbs"]
+    assert not (small_library / "fingerprints" / "quiet.json").exists()
+    # Silence adds nothing to Dref, and the DNA features are still built.
+    assert manifest["song_fingerprint"]["dref"] == dref_without_silence
+    assert (small_library / quiet["features"]).is_file()
+
+
+def test_build_library_with_only_silent_tracks_has_no_dref(tmp_path):
+    (tmp_path / "audio").mkdir()
+    sf.write(tmp_path / "audio" / "quiet.wav", np.zeros(22050 * 2), 22050)
+    write_metadata(tmp_path, [{"id": "quiet", "title": "Quiet", "genre": "Ambient", "file": "quiet.wav"}])
+
+    build_library(tmp_path)
+    manifest = read_json(tmp_path / "library.json")
+
+    assert manifest["song_fingerprint"]["dref"] is None
+    assert manifest["tracks"][0]["song_fingerprint"]["artifact"] is None
+    assert read_json(tmp_path / "fingerprints" / "thumbs.json")["thumbs"] == {}
 
 
 # --- the library actually committed in the repo ---------------------------------
@@ -271,3 +390,38 @@ def test_committed_library_is_internally_consistent():
 
     orphans = {p.stem for p in (COMMITTED_LIBRARY / "features").glob("*.json")} - set(manifest_ids)
     assert not orphans, f"orphaned feature files: {orphans}"
+
+
+def test_committed_song_fingerprints_match_the_current_rules_and_audio():
+    """
+    The committed fingerprint files must come from the current frozen
+    parameters and the current audio; otherwise rerun scripts/build_library.py.
+    """
+    manifest = json.loads((COMMITTED_LIBRARY / "library.json").read_text(encoding="utf-8"))
+    summary = manifest["song_fingerprint"]
+    assert summary["version"] == FINGERPRINT_VERSION
+    assert summary["params_hash"] == params_hash(), "fingerprints are stale - rerun scripts/build_library.py"
+
+    audio_sha256 = {
+        t["id"]: hashlib.sha256((COMMITTED_LIBRARY / t["audio"]).read_bytes()).hexdigest()
+        for t in manifest["tracks"]
+    }
+    assert summary["corpus_id"] == corpus_id(audio_sha256), "audio changed - rerun scripts/build_library.py"
+
+    thumbs = json.loads((COMMITTED_LIBRARY / summary["thumbs"]).read_text(encoding="utf-8"))
+    drawable = set()
+    for entry in manifest["tracks"]:
+        ref = entry["song_fingerprint"]
+        if ref["artifact"] is None:
+            assert ref["unavailable_reason"]
+            continue
+        drawable.add(entry["id"])
+        hero = json.loads((COMMITTED_LIBRARY / ref["artifact"]).read_text(encoding="utf-8"))
+        assert hero["id"] == entry["id"]
+        assert hero["corpus_id"] == summary["corpus_id"]
+        assert hero["dref"] == summary["dref"]
+        assert hero["hero"].startswith("M")
+
+    assert set(thumbs["thumbs"]) == drawable
+    files = {p.stem for p in (COMMITTED_LIBRARY / "fingerprints").glob("*.json")} - {"thumbs"}
+    assert files == drawable, f"orphaned or missing fingerprint files: {files ^ drawable}"

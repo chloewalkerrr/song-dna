@@ -9,12 +9,15 @@ Source of truth is a library directory (default frontend/public/library):
 build_library() analyses each track once with extract_features() and writes:
 
     features/<id>.json   precomputed analysis (what /analyze would have returned)
-    library.json         manifest: metadata + duration, tempo, a small fingerprint
-                         preview for library cards, and relative paths to the above
+    fingerprints/*.json  Song Fingerprint paths (see song_fingerprint/artifacts.py)
+    library.json         manifest: metadata + duration, tempo, a small DNA
+                         preview, Song Fingerprint references, and relative
+                         paths to the above
 
 so the frontend can show a track's fingerprint without running librosa.
 """
 
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -22,6 +25,13 @@ from pathlib import Path
 import numpy as np
 
 from song_dna.features import AudioFeatures, extract_features
+from song_dna.song_fingerprint import measure_file
+from song_dna.song_fingerprint.artifacts import (
+    FINGERPRINTS_DIR,
+    FingerprintArtifacts,
+    THUMBS_FILE,
+    build_fingerprint_artifacts,
+)
 
 # Number of bars in a library card's mini fingerprint. Cards are small, so this
 # is deliberately fewer than the full fingerprint's 40 segments x 2 strands of
@@ -128,11 +138,32 @@ def load_metadata(metadata_path: Path) -> list[dict]:
     return tracks
 
 
+def write_fingerprint_files(fingerprints_dir: Path, fingerprints: FingerprintArtifacts) -> None:
+    """
+    Write thumbs.json and one hero file per drawable track, and delete any
+    other JSON there - fingerprints of removed tracks, or of tracks that no
+    longer have one - so nothing from an older build is served.
+    """
+    fingerprints_dir.mkdir(exist_ok=True)
+    (fingerprints_dir / THUMBS_FILE).write_text(
+        json.dumps(fingerprints.thumbs, separators=(",", ":")), encoding="utf-8"
+    )
+    for track_id, hero in fingerprints.heroes.items():
+        (fingerprints_dir / f"{track_id}.json").write_text(
+            json.dumps(hero, separators=(",", ":")), encoding="utf-8"
+        )
+
+    keep = {THUMBS_FILE} | {f"{track_id}.json" for track_id in fingerprints.heroes}
+    for stale in fingerprints_dir.glob("*.json"):
+        if stale.name not in keep:
+            stale.unlink()
+
+
 def build_library(library_dir: Path) -> list[dict]:
     """
     Analyse every track in library_dir/metadata.json and (re)write
-    library_dir/features/*.json and library_dir/library.json.
-    Returns the manifest's track list.
+    library_dir/features/*.json, library_dir/fingerprints/*.json and
+    library_dir/library.json. Returns the manifest's track list.
     """
     library_dir = Path(library_dir)
     tracks = load_metadata(library_dir / "metadata.json")
@@ -150,8 +181,15 @@ def build_library(library_dir: Path) -> list[dict]:
     features_dir.mkdir(exist_ok=True)
 
     manifest_tracks = []
+    measurements, audio_sha256 = {}, {}
     for track in tracks:
-        features = extract_features(str(library_dir / "audio" / track["file"]))
+        audio_path = library_dir / "audio" / track["file"]
+        # The Song Fingerprint measures the audio independently of the DNA
+        # features below; neither affects the other.
+        measurements[track["id"]] = measure_file(str(audio_path))
+        audio_sha256[track["id"]] = hashlib.sha256(audio_path.read_bytes()).hexdigest()
+
+        features = extract_features(str(audio_path))
         feature_data = build_track_features(features, track["id"])
 
         (features_dir / f"{track['id']}.json").write_text(
@@ -179,7 +217,16 @@ def build_library(library_dir: Path) -> list[dict]:
         if stale.stem not in current_ids:
             stale.unlink()
 
-    manifest = {"version": 1, "tracks": manifest_tracks}
+    fingerprints = build_fingerprint_artifacts(measurements, audio_sha256)
+    write_fingerprint_files(library_dir / FINGERPRINTS_DIR, fingerprints)
+    for entry in manifest_tracks:
+        entry["song_fingerprint"] = fingerprints.track_refs[entry["id"]]
+
+    manifest = {
+        "version": 1,
+        "song_fingerprint": fingerprints.summary,
+        "tracks": manifest_tracks,
+    }
     (library_dir / "library.json").write_text(
         json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
     )
