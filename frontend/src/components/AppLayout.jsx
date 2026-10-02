@@ -36,7 +36,10 @@ function AppShell() {
   return (
     <>
       <AppSidebar triggerRef={sidebarTriggerRef} />
-      <SidebarInset>
+      {/* min-w-0 lets the inset shrink below its content's width. Without it,
+          charts measured while the sidebar was collapsed keep their wider
+          pixel width and pin the inset open when the sidebar reopens. */}
+      <SidebarInset className="min-w-0">
         {/* Holds the product name and the sidebar toggle wherever the sidebar
             itself isn't visible: always on phones (where the sidebar is a
             slide-out sheet), and on desktop only while it is collapsed. It sits
