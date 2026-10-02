@@ -1,3 +1,11 @@
+// Spectral centroid has rare outlier frames (e.g. a single transient/click)
+// that sit far above the vast majority of the song's real range - a true
+// max lets one such frame flatten the entire visual scale. RMS energy
+// doesn't show this problem (confirmed against real extracted audio: its
+// 90th percentile sits at 64-100% of its true max, vs centroid's 33-87%),
+// so only centroid uses percentile-based scaling; RMS keeps the true max.
+export const CENTROID_SCALE_PERCENTILE = 95;
+
 function combineArrays(valueArrays) {
   return valueArrays.filter(Boolean).flat();
 }

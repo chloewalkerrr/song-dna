@@ -2,6 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
+@import "@fontsource-variable/source-serif-4";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -42,11 +43,21 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  /* "Now": a restrained ochre that marks the current / interaction state on
+     instrument-style figures (the playhead, the selected row, the slice being
+     read). Never a data series. Taken from the Home design mockup; 5.7:1
+     against white and 5.1:1 against warm paper (#f4f1ea), so it holds AA as text. */
+  --now: oklch(0.514 0.105 74.7);
+  --now-soft: oklch(0.514 0.105 74.7 / 14%);
 }
 
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: 'Geist Variable', sans-serif;
+  /* Large headings and figure labels only; controls and body text stay sans. */
+  --font-serif: 'Source Serif 4 Variable', Georgia, serif;
+  --color-now: var(--now);
+  --color-now-soft: var(--now-soft);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -122,6 +133,9 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  /* Lighter ochre for dark surfaces: 7.9:1 or more on the dark backgrounds. */
+  --now: oklch(0.741 0.118 79.2);
+  --now-soft: oklch(0.741 0.118 79.2 / 16%);
 }
 
 @layer base {

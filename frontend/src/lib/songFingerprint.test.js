@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   attachFingerprints,
+  HERO_VIEW_BOX,
   isValidPathData,
   parseFingerprintSummary,
+  parseHero,
   parseThumbs,
+  resolveHeroLoad,
   SUPPORTED_FINGERPRINT_VERSION,
   THUMB_VIEW_BOX,
+  unavailableText,
 } from "./songFingerprint";
 
 const identity = {
@@ -168,9 +172,37 @@ describe("parseThumbs", () => {
 describe("attachFingerprints", () => {
   const thumbs = parseThumbs(rawThumbs, summary);
 
-  it("marks drawable tracks available with their path and view box", () => {
+  it("marks drawable tracks available with their path, view box, hero file and build identity", () => {
     const [track] = attachFingerprints([drawn], summary, thumbs);
-    expect(track).toEqual({ ...drawn, fingerprint: { status: "available", path: PATH, viewBox: "0 0 52 52" } });
+    expect(track).toEqual({
+      ...drawn,
+      fingerprint: {
+        status: "available",
+        path: PATH,
+        viewBox: "0 0 52 52",
+        heroArtifact: "fingerprints/dev-pulse.json",
+        identity,
+      },
+    });
+  });
+
+  it("still shows the thumbnail when the hero reference isn't a usable path", () => {
+    for (const artifact of [
+      "", " ", "../library.json", "fingerprints/other-track.json", "features/dev-pulse.json",
+      42, ["fingerprints/dev-pulse.json"], { path: "x" }, throwsOnCoercion,
+    ]) {
+      const [track] = attachFingerprints([{ ...drawn, song_fingerprint: { artifact } }], summary, thumbs);
+      expect(track.fingerprint).toMatchObject({ status: "available", path: PATH, heroArtifact: null });
+    }
+  });
+
+  it("gives unavailable fingerprints no hero file or identity", () => {
+    const [silentTrack] = attachFingerprints([silent], summary, thumbs);
+    const [noThumb] = attachFingerprints([drawn], summary, null);
+    for (const { fingerprint } of [silentTrack, noThumb]) {
+      expect(fingerprint).not.toHaveProperty("heroArtifact");
+      expect(fingerprint).not.toHaveProperty("identity");
+    }
   });
 
   it("keeps the build's reason for a track with no fingerprint", () => {
@@ -198,5 +230,219 @@ describe("attachFingerprints", () => {
     const original = { ...drawn };
     attachFingerprints([original], summary, thumbs);
     expect(original).toEqual(drawn);
+  });
+});
+
+describe("parseHero", () => {
+  const HERO_PATH = "M110.0 35.2L112.4 36.0M60.5 80.0L61.0 82.5";
+  const frames = { total_frames: 1292, voiced_frames: 1081, in_domain_frames: 1081 };
+  const rawHero = {
+    id: "dev-pulse",
+    ...identity,
+    audio_sha256: "a".repeat(64),
+    frames,
+    view_box: "0 0 220 220",
+    hero: HERO_PATH,
+  };
+  const track = { id: "dev-pulse" };
+
+  it("returns the hero path, its view box and the frame counts", () => {
+    expect(HERO_VIEW_BOX).toBe("0 0 220 220");
+    expect(parseHero(rawHero, track, identity)).toEqual({
+      path: HERO_PATH,
+      viewBox: "0 0 220 220",
+      frames: { totalFrames: 1292, voicedFrames: 1081, inDomainFrames: 1081 },
+    });
+  });
+
+  it.each([
+    ["version", "E1B1/2"],
+    ["params_hash", "0".repeat(64)],
+    ["librosa_version", "0.10.2"],
+    ["dref", 0.0047684981540850255],
+    ["corpus_id", "f".repeat(64)],
+  ])("rejects a hero from a different build than the thumbnails (%s differs)", (field, value) => {
+    expect(parseHero({ ...rawHero, [field]: value }, track, identity)).toBeNull();
+  });
+
+  it("rejects a hero missing an identity field", () => {
+    for (const field of Object.keys(identity)) {
+      const withoutField = { ...rawHero };
+      delete withoutField[field];
+      expect(parseHero(withoutField, track, identity)).toBeNull();
+    }
+  });
+
+  it("rejects a hero when there is no build identity to match", () => {
+    for (const missing of [undefined, null, "E1B1/1", [identity]]) {
+      expect(parseHero(rawHero, track, missing)).toBeNull();
+    }
+  });
+
+  it("rejects another track's hero", () => {
+    expect(parseHero(rawHero, { id: "dev-sweep" }, identity)).toBeNull();
+    expect(parseHero({ ...rawHero, id: undefined }, track, identity)).toBeNull();
+    expect(parseHero(rawHero, {}, identity)).toBeNull();
+    expect(parseHero(rawHero, null, identity)).toBeNull();
+  });
+
+  it("rejects an empty expected identity even when the hero also lacks identity fields", () => {
+    const withoutIdentity = { ...rawHero };
+    for (const field of Object.keys(identity)) delete withoutIdentity[field];
+    expect(parseHero(withoutIdentity, track, {})).toBeNull();
+  });
+
+  it.each([
+    ["version", "E1B1/2"],
+    ["params_hash", "invalid"],
+    ["corpus_id", "invalid"],
+    ["librosa_version", ""],
+    ["dref", -1],
+  ])("rejects an invalid expected %s even when the hero matches it", (field, value) => {
+    expect(parseHero({ ...rawHero, [field]: value }, track, { ...identity, [field]: value })).toBeNull();
+  });
+
+  it("requires the hero view box to be exactly the E1B1/1 value, without coercing or throwing", () => {
+    const badHeroViewBoxes = [
+      ...BAD_VIEW_BOXES.filter((viewBox) => viewBox !== "0 0 220 220"),
+      "0 0 52 52",
+      "0 0 220.0 220.0",
+      " 0 0 220 220",
+      "0 0 220 220 ",
+    ];
+    for (const viewBox of badHeroViewBoxes) {
+      expect(parseHero({ ...rawHero, view_box: viewBox }, track, identity)).toBeNull();
+    }
+  });
+
+  it("rejects hero path data the generator wouldn't write", () => {
+    for (const hero of [undefined, "", "M1 2 L3 4", "M1.0 2.0Z", "<path>", 42, [HERO_PATH], throwsOnCoercion]) {
+      expect(parseHero({ ...rawHero, hero }, track, identity)).toBeNull();
+    }
+  });
+
+  it.each([
+    ["missing", undefined],
+    ["not an object", 1292],
+    ["an array", [1292, 1081, 1081]],
+    ["a string count", { ...frames, total_frames: "1292" }],
+    ["a fractional count", { ...frames, voiced_frames: 1080.5 }],
+    ["a NaN count", { ...frames, in_domain_frames: Number.NaN }],
+    ["a missing count", { total_frames: 1292, voiced_frames: 1081 }],
+    ["a count that throws when coerced", { ...frames, total_frames: throwsOnCoercion }],
+    ["no frames in the domain", { ...frames, in_domain_frames: 0 }],
+    ["negative counts", { total_frames: -1, voiced_frames: -1, in_domain_frames: -1 }],
+    ["more in-domain than voiced frames", { ...frames, in_domain_frames: 1082 }],
+    ["more voiced than total frames", { ...frames, voiced_frames: 1293, in_domain_frames: 1293 }],
+  ])("rejects frame counts that are %s", (_name, badFrames) => {
+    expect(parseHero({ ...rawHero, frames: badFrames }, track, identity)).toBeNull();
+  });
+
+  it("rejects a payload that isn't a hero object", () => {
+    for (const payload of [null, undefined, HERO_PATH, [rawHero], throwsOnCoercion]) {
+      expect(parseHero(payload, track, identity)).toBeNull();
+    }
+  });
+});
+
+describe("resolveHeroLoad", () => {
+  const track = { id: "dev-pulse" };
+  const hero = {
+    status: "available",
+    path: "M110.0 35.2L112.4 36.0",
+    viewBox: "0 0 220 220",
+    frames: { totalFrames: 1292, voicedFrames: 1081, inDomainFrames: 1081 },
+  };
+
+  it("is loading until a result for the track arrives", () => {
+    expect(resolveHeroLoad(track, { trackId: null, hero: null })).toEqual({ status: "loading" });
+    expect(resolveHeroLoad(track, undefined)).toEqual({ status: "loading" });
+  });
+
+  it("is ready with the hero once it has loaded", () => {
+    expect(resolveHeroLoad(track, { trackId: "dev-pulse", hero })).toEqual({ status: "ready", hero });
+  });
+
+  it("is unavailable with the loader's reason", () => {
+    for (const reason of ["no_voiced_frames", "malformed", "unsupported_version"]) {
+      expect(resolveHeroLoad(track, { trackId: "dev-pulse", hero: { status: "unavailable", reason } })).toEqual({
+        status: "unavailable",
+        reason,
+      });
+    }
+  });
+
+  it("treats an unexpected result for the track as unavailable rather than ready", () => {
+    for (const bad of [null, undefined, {}, { status: "unavailable" }]) {
+      expect(resolveHeroLoad(track, { trackId: "dev-pulse", hero: bad })).toEqual({
+        status: "unavailable",
+        reason: "missing",
+      });
+    }
+  });
+
+  it("keeps loading when the last result belongs to another track", () => {
+    // A late hero for the previous selection must not appear for the current one.
+    expect(resolveHeroLoad({ id: "dev-sweep" }, { trackId: "dev-pulse", hero })).toEqual({ status: "loading" });
+    expect(
+      resolveHeroLoad({ id: "dev-sweep" }, { trackId: "dev-pulse", hero: { status: "unavailable", reason: "malformed" } })
+    ).toEqual({ status: "loading" });
+  });
+
+  it("is unavailable when there is no track", () => {
+    for (const missing of [null, undefined, {}]) {
+      expect(resolveHeroLoad(missing, { trackId: null, hero: null })).toEqual({
+        status: "unavailable",
+        reason: "missing",
+      });
+    }
+  });
+});
+
+describe("unavailableText", () => {
+  const GENERAL = "There is no fingerprint for this track in the library.";
+
+  it.each([
+    ["no_voiced_frames", "No part of this track is loud enough to measure, so there is nothing to draw."],
+    [
+      "no_frames_in_domain",
+      "None of this track's sound falls inside the brightness range the fingerprint measures, so there is nothing to draw.",
+    ],
+    [
+      "below_visited_threshold",
+      "This track doesn't stay in any one place long enough to form a shape, so nothing is drawn.",
+    ],
+    ["unsupported_version", "This fingerprint was made by a different version than this page can read."],
+    ["malformed", "The fingerprint file couldn't be loaded or doesn't match this library build."],
+    ["missing", GENERAL],
+  ])("explains %s", (reason, text) => {
+    expect(unavailableText(reason)).toBe(text);
+  });
+
+  it("falls back to the general message for unknown strings, including inherited keys", () => {
+    for (const reason of ["something_new", "", "toString", "__proto__", "constructor"]) {
+      expect(unavailableText(reason)).toBe(GENERAL);
+    }
+  });
+
+  it("falls back to the general message for non-string reasons without coercing or throwing", () => {
+    for (const reason of [
+      undefined,
+      null,
+      {},
+      { reason: "malformed" },
+      throwsOnCoercion,
+      JSON.parse('{"toString": null}'),
+      ["malformed"],
+      [],
+      0,
+      42,
+      Number.NaN,
+      true,
+      false,
+    ]) {
+      expect(() => unavailableText(reason)).not.toThrow();
+      expect(unavailableText(reason)).toBe(GENERAL);
+    }
   });
 });

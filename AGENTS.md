@@ -3,8 +3,10 @@
 Shared instructions for every coding agent working in this repository (Codex reads
 this file directly; Claude Code imports it from CLAUDE.md).
 
-SongDNA is a single-user, localhost-only audio analysis app: measured energy,
-brightness and beats become visual fingerprints, with explainable two-song findings.
+SongDNA is a single-user, localhost-only audio analysis app. Each track gets a
+Song Fingerprint (a whole-track identity mark with no time axis) and Song DNA
+(measured energy, brightness and beats over time); two tracks can be compared
+on one scale, with explainable rule-based findings.
 
 Read README.md for setup and PROJECT_CONTEXT.md before proposing features.
 Some implementation descriptions are stale; code is authoritative for current
@@ -29,16 +31,26 @@ behaviour. Product boundaries and working rules still apply.
   Alias @/ resolves to that directory. lib/config.js defines the API URL
   (default http://127.0.0.1:8000; VITE_API_URL override).
 - App.jsx wraps routes with Theme → Library → Selection providers.
+  / (Home) is built around one selected library track (default Dev Sweep):
+  an intro, Fig. 1 Song Fingerprint (220 px hero, loaded on demand by
+  hooks/use-fingerprint-hero.js) beside a numbered library index that
+  chooses the track, Fig. 2 Song DNA (interactive, playable), Fig. 3 a
+  same-scale A/B preview that opens Compare, then "How it's measured".
+  Song DNA strips on Home share one library-wide scale. Components in
+  components/home/, statistics in specimen.js.
   /library browses/searches/previews tracks and selects A/B.
   /compare shows two SongPanels and Findings; when A and B are both selected
   they start with those library tracks' precomputed features, otherwise they
-  start empty for uploads. Other routes redirect to /library.
+  start empty for uploads. Other routes redirect to /.
 - Contexts/useX hooks live in hooks/use-x.js; providers in
   components/x-provider.jsx. Pure logic belongs in .js modules with colocated
   *.test.js (currently scaling, bucketing, fingerprintLayout, beatThinning,
-  selection, trackFilter, format, panelLoad, lib/library, lib/songFingerprint,
-  lib/theme).
-  Fingerprint.jsx, SongPanel.jsx and Findings.jsx live at src/ root.
+  selection, trackFilter, format, panelLoad, specimen, lib/library,
+  lib/songFingerprint, lib/theme).
+  Fingerprint.jsx, FingerprintStrands.jsx (the shared SVG strand renderer:
+  default violet/cyan variant for Compare, neutral "instrument" variant for
+  Home), SongPanel.jsx and Findings.jsx live at src/ root.
+  components/SongFingerprint.jsx draws Song Fingerprints (thumb and hero).
   components/ui/ is shadcn-generated and lint-ignored.
 - Static library: frontend/public/library/metadata.json + audio/* are inputs;
   scripts/build_library.py generates features/<id>.json, fingerprints/*.json
@@ -53,7 +65,8 @@ behaviour. Product boundaries and working rules still apply.
 - Library features and /analyze share the fields consumed by Fingerprint:
   rms_energy, spectral_centroid, beat_times and duration_seconds.
 - Full comparison uses shared scales across both songs: true maximum for RMS,
-  shared 95th percentile for centroid, with clamped bars.
+  shared 95th percentile for centroid, with clamped bars. Home applies the
+  same rules across every loaded library track (specimen.js getLibraryScale).
 - Library previews use 48 segments and per-track normalization; they do not
   represent cross-song magnitude comparisons. They are still generated but no
   longer shown on cards.
@@ -61,8 +74,9 @@ behaviour. Product boundaries and working rules still apply.
   whole-track identity layer, not a replacement for Song DNA. Its parameters
   are frozen and must reproduce the research reference exactly
   (tests/test_song_fingerprint_parity.py); changing any requires a new
-  version. It never changes DNA RMS/centroid arrays. Library cards show the
-  52 px thumbnail; it is not yet in Compare, /analyze or uploads.
+  version. It never changes DNA RMS/centroid arrays. Library cards, the Home
+  index and Home Fig. 3 show the 52 px thumbnail; Home Fig. 1 shows the
+  220 px hero. It is not yet in Compare, /analyze or uploads.
 - Full fingerprints use 40 segments. Bucketing and beat-marker thinning are
   display-only; never alter analysis data for presentation.
 
@@ -168,18 +182,37 @@ Frontend normally runs at http://localhost:5173; backend at http://127.0.0.1:800
   className and tokens instead of replacing the system.
 - Don't force shadcn where a custom visualization or SongDNA-specific
   interaction fits better (fingerprints, playhead, A/B selection), and keep
-  SongDNA's visual identity and feature/slot colours. Avoid generic
-  "AI-generated" styling and decoration that carries no information.
-- Use neutral OKLCH semantic tokens from frontend/src/index.css and Geist
-  Variable. Prefer bg-card, text-muted-foreground and border-border over raw
-  colours, except established feature/slot colours.
-- Full fingerprint and legend: energy violet-500 above the axis, brightness
-  cyan-500 below; beats foreground/50, playhead foreground.
-- Selection: A violet-500, B blue-500. Library cards show the Song
-  Fingerprint (SongFingerprint.jsx), which stays neutral/monochrome in every
-  state; selection is shown by the card outline and slot badge only.
-- Preserve the sidebar shell and page pattern: mx-auto max-w-[920px],
-  text-3xl font-semibold tracking-tight headings, muted subtitles.
+  SongDNA's visual identity and the colour rules below. Avoid generic
+  "AI-generated" or SaaS styling and decoration that carries no information.
+- Neutral black/white base: use the neutral OKLCH semantic tokens from
+  frontend/src/index.css. Prefer bg-card, text-muted-foreground and
+  border-border over raw colours, except the established colours below.
+- Fonts: Geist Variable for body, controls and all UI text. Source Serif 4
+  Variable (font-serif) only for Home's editorial headline and figure labels
+  ("Fig. N · …"), at normal weight.
+- One warm accent: the ochre --now / --now-soft tokens (text-now, bg-now,
+  stroke-now, bg-now-soft) mark the current or interaction state (current
+  index row, playhead, read band). Never use them for a data series.
+- Restrained radius and shadows; no gradients, glow or glass. On Home prefer
+  whitespace and hairline borders to cards. The Song Fingerprint is the
+  product's visual identity.
+- Home is neutral ink: no violet, cyan or blue.
+  - Song DNA uses FingerprintStrands variant="instrument": energy solid bars
+    upward, brightness open (outlined) bars downward, beats short ticks along
+    the top, ochre playhead; the slice being read is a bg-now-soft band.
+  - A/B uses SlotBadge tone="ink" (A solid, B outlined).
+- Compare and Library keep the original colours until a change explicitly
+  restyles them:
+  - Compare's full fingerprint and legend: energy violet-500 above the axis,
+    brightness cyan-500 below; beats foreground/50, playhead foreground.
+  - Selection: A violet-500, B blue-500 (card outline, slot badge, selection
+    bar). Library cards show the Song Fingerprint (SongFingerprint.jsx),
+    which stays neutral/monochrome in every state; selection is shown by the
+    card outline and slot badge only.
+- Song Fingerprints are monochrome (currentColor) everywhere.
+- Preserve the sidebar shell and page pattern: mx-auto max-w-[920px], muted
+  subtitles, text-3xl tracking-tight page headings (font-semibold sans on
+  Library and Compare; Home's headline is the serif, normal-weight exception).
 - Write complete Tailwind class strings, using lookup objects rather than
   dynamically constructing class names.
 - Show plain-language errors in destructive Alerts; use skeletons or muted

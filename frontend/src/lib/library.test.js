@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  fetchFingerprintHero,
   fetchLibrary,
   fetchTrackFeatures,
   libraryUrl,
   parseLibraryManifest,
   parseTrackFeatures,
+  resolveFeatureLoad,
 } from "./library";
 
 const goodTrack = {
@@ -90,7 +92,22 @@ describe("fetchLibrary", () => {
       const [track] = await fetchLibrary();
 
       expect(fetchMock).toHaveBeenCalledWith("/library/fingerprints/thumbs.json");
-      expect(track.fingerprint).toEqual({ status: "available", path: "M1.0 2.0L3.0 4.0", viewBox: "0 0 52 52" });
+      expect(track.fingerprint).toEqual({
+        status: "available",
+        path: "M1.0 2.0L3.0 4.0",
+        viewBox: "0 0 52 52",
+        heroArtifact: "fingerprints/dev-pulse.json",
+        identity,
+      });
+    });
+
+    it("doesn't load any hero files while loading the library", async () => {
+      const fetchMock = stubLibrary(() => ({ ok: true, status: 200, json: async () => thumbs }));
+      await fetchLibrary();
+      expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+        "/library/library.json",
+        "/library/fingerprints/thumbs.json",
+      ]);
     });
 
     it("still returns the library when thumbs.json is missing, invalid or unreachable", async () => {
@@ -150,6 +167,94 @@ describe("fetchLibrary", () => {
       })
     );
     await expect(fetchLibrary()).rejects.toThrow(/Couldn't reach/);
+  });
+});
+
+describe("fetchFingerprintHero", () => {
+  const identity = {
+    version: "E1B1/1",
+    params_hash: "9e2c3876c5ed81c46b7c97987dc2b3eb90c812da9eb031bcda3fbf0ebaa5366b",
+    librosa_version: "0.11.0",
+    dref: 0.005909040273794664,
+    corpus_id: "2e1a85551d734edfe264112a554a062d322a724b45676073e5cf7fb01a7b2d12",
+  };
+  // A track as fetchLibrary returns it when its thumbnail is available.
+  const track = {
+    ...goodTrack,
+    fingerprint: {
+      status: "available",
+      path: "M1.0 2.0L3.0 4.0",
+      viewBox: "0 0 52 52",
+      heroArtifact: "fingerprints/dev-pulse.json",
+      identity,
+    },
+  };
+  const hero = {
+    id: "dev-pulse",
+    ...identity,
+    frames: { total_frames: 1292, voiced_frames: 1292, in_domain_frames: 1292 },
+    view_box: "0 0 220 220",
+    hero: "M110.0 35.2L112.4 36.0",
+  };
+  const unavailable = { status: "unavailable", reason: "malformed" };
+
+  it("loads and validates the track's hero file", async () => {
+    stubFetch({ ok: true, status: 200, json: async () => hero });
+    await expect(fetchFingerprintHero(track)).resolves.toEqual({
+      status: "available",
+      path: "M110.0 35.2L112.4 36.0",
+      viewBox: "0 0 220 220",
+      frames: { totalFrames: 1292, voicedFrames: 1292, inDomainFrames: 1292 },
+    });
+    expect(fetch).toHaveBeenCalledWith("/library/fingerprints/dev-pulse.json");
+  });
+
+  it("requests nothing for a track whose fingerprint is unavailable, and keeps its reason", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const silent = { ...goodTrack, fingerprint: { status: "unavailable", reason: "no_voiced_frames" } };
+    await expect(fetchFingerprintHero(silent)).resolves.toEqual({
+      status: "unavailable",
+      reason: "no_voiced_frames",
+    });
+    for (const noFingerprint of [goodTrack, { ...goodTrack, fingerprint: null }, null]) {
+      await expect(fetchFingerprintHero(noFingerprint)).resolves.toEqual({
+        status: "unavailable",
+        reason: "missing",
+      });
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    undefined, null, "", " ", "../library.json", "fingerprints/other-track.json",
+    "features/dev-pulse.json", "library.json", 42, { path: "fingerprints/dev-pulse.json" },
+  ])("requests nothing for invalid hero reference %j", async (heroArtifact) => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const noHero = { ...track, fingerprint: { ...track.fingerprint, heroArtifact } };
+    await expect(fetchFingerprintHero(noHero)).resolves.toEqual(unavailable);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("reports a missing, invalid or unreachable hero file as malformed instead of throwing", async () => {
+    const failures = [
+      { ok: false, status: 404, json: async () => ({}) },
+      { ok: true, status: 200, json: async () => { throw new SyntaxError("Unexpected token '<'"); } },
+    ];
+    for (const failure of failures) {
+      stubFetch(failure);
+      await expect(fetchFingerprintHero(track)).resolves.toEqual(unavailable);
+    }
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("Failed to fetch"); }));
+    await expect(fetchFingerprintHero(track)).resolves.toEqual(unavailable);
+  });
+
+  it("rejects a hero from another track or a different build", async () => {
+    for (const wrong of [{ ...hero, id: "dev-sweep" }, { ...hero, corpus_id: "f".repeat(64) }]) {
+      stubFetch({ ok: true, status: 200, json: async () => wrong });
+      await expect(fetchFingerprintHero(track)).resolves.toEqual(unavailable);
+    }
   });
 });
 
@@ -232,5 +337,62 @@ describe("fetchTrackFeatures", () => {
       })
     );
     await expect(fetchTrackFeatures(goodTrack)).rejects.toThrow(/Couldn't load the analysis/);
+  });
+});
+
+describe("resolveFeatureLoad", () => {
+  const trackA = { id: "a" };
+  const trackB = { id: "b" };
+  const noResult = { tracks: null, byId: new Map(), failedIds: [] };
+
+  it("treats a valid empty manifest as ready, with nothing loaded or failed", () => {
+    const tracks = parseLibraryManifest({ tracks: [] });
+    expect(resolveFeatureLoad(tracks, noResult)).toEqual({
+      status: "ready",
+      byId: new Map(),
+      failedIds: [],
+    });
+  });
+
+  it("is loading while a populated library has no result yet", () => {
+    expect(resolveFeatureLoad([trackA, trackB], noResult)).toEqual({
+      status: "loading",
+      byId: new Map(),
+      failedIds: [],
+    });
+  });
+
+  it("is ready with every track's features once they have all loaded", () => {
+    const tracks = [trackA, trackB];
+    const byId = new Map([["a", { x: 1 }], ["b", { x: 2 }]]);
+    const state = resolveFeatureLoad(tracks, { tracks, byId, failedIds: [] });
+    expect(state.status).toBe("ready");
+    expect(state.byId).toBe(byId);
+    expect(state.failedIds).toEqual([]);
+  });
+
+  it("keeps partial failures: loaded tracks in byId, failed ids listed", () => {
+    const tracks = [trackA, trackB];
+    const state = resolveFeatureLoad(tracks, {
+      tracks,
+      byId: new Map([["a", { x: 1 }]]),
+      failedIds: ["b"],
+    });
+    expect(state.status).toBe("ready");
+    expect([...state.byId.keys()]).toEqual(["a"]);
+    expect(state.failedIds).toEqual(["b"]);
+  });
+
+  it("is ready with nothing loaded when every track failed", () => {
+    const tracks = [trackA, trackB];
+    const state = resolveFeatureLoad(tracks, { tracks, byId: new Map(), failedIds: ["a", "b"] });
+    expect(state.status).toBe("ready");
+    expect(state.byId.size).toBe(0);
+    expect(state.failedIds).toEqual(["a", "b"]);
+  });
+
+  it("counts a result for an older track list as still loading", () => {
+    const result = { tracks: [trackA], byId: new Map([["a", { x: 1 }]]), failedIds: [] };
+    expect(resolveFeatureLoad([trackA, trackB], result).status).toBe("loading");
   });
 });

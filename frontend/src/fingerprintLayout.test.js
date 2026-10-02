@@ -40,6 +40,24 @@ describe("getSegmentLayout", () => {
   it("gives zero-size cells for a zero-width chart (not yet measured)", () => {
     expect(getSegmentLayout(0, 40)).toEqual({ cellWidth: 0, barWidth: 0 });
   });
+
+  it("fills the given share of each cell when a bar width ratio is passed", () => {
+    const { cellWidth, barWidth } = getSegmentLayout(400, 40, 0.3);
+    expect(cellWidth).toBe(10);
+    expect(barWidth).toBeCloseTo(3);
+  });
+
+  it("keeps the same cells whatever the ratio, so thin and standard bars line up", () => {
+    const thin = getSegmentLayout(808, 40, 0.3);
+    const standard = getSegmentLayout(808, 40);
+    expect(thin.cellWidth).toBe(standard.cellWidth);
+    expect(thin.barWidth).toBeLessThan(standard.barWidth);
+  });
+
+  it("treats an omitted ratio exactly like the standard 70%", () => {
+    expect(getSegmentLayout(620, 40, undefined)).toEqual(getSegmentLayout(620, 40));
+    expect(getSegmentLayout(620, 40).barWidth).toBeCloseTo(620 / 40 * 0.7);
+  });
 });
 
 describe("timeToX", () => {

@@ -3,6 +3,7 @@ import AppLayout from "@/components/AppLayout";
 import { LibraryProvider } from "@/components/library-provider";
 import { SelectionProvider } from "@/components/selection-provider";
 import { ThemeProvider } from "@/components/theme-provider";
+import HomePage from "@/pages/HomePage";
 import LibraryPage from "@/pages/LibraryPage";
 import ComparePage from "@/pages/ComparePage";
 
@@ -14,10 +15,10 @@ function App() {
           <BrowserRouter>
             <Routes>
               <Route element={<AppLayout />}>
-                <Route index element={<Navigate to="/library" replace />} />
+                <Route index element={<HomePage />} />
                 <Route path="library" element={<LibraryPage />} />
                 <Route path="compare" element={<ComparePage />} />
-                <Route path="*" element={<Navigate to="/library" replace />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
               </Route>
             </Routes>
           </BrowserRouter>

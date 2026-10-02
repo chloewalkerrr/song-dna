@@ -7,6 +7,7 @@ import {
   isBlocked,
   isFull,
   removeSlot,
+  selectPair,
   selectedCount,
   toggleSong,
 } from "./selection";
@@ -88,5 +89,17 @@ describe("getCompareTracks", () => {
   it("keeps the upload flow when a selected id isn't in the library", () => {
     expect(getCompareTracks({ a: "pulse", b: "gone" }, tracks)).toEqual(uploadFlow);
     expect(getCompareTracks({ a: "pulse", b: "sweep" }, [])).toEqual(uploadFlow);
+  });
+});
+
+describe("selectPair", () => {
+  it("fills A and B at once, replacing an existing selection", () => {
+    expect(selectPair("x", "y")).toEqual({ a: "x", b: "y" });
+  });
+
+  it("leaves the selection empty for a missing or repeated track", () => {
+    expect(selectPair("x", "x")).toEqual(EMPTY_SELECTION);
+    expect(selectPair("x", null)).toEqual(EMPTY_SELECTION);
+    expect(selectPair(null, "y")).toEqual(EMPTY_SELECTION);
   });
 });

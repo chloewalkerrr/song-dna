@@ -21,6 +21,10 @@ export const UNAVAILABLE = {
 // this fingerprint.
 export const THUMB_VIEW_BOX = "0 0 52 52";
 
+// E1B1/1 heroes are traced on a fixed 220 x 220 view, separately from the
+// thumbnail (a hero is never a scaled-up thumbnail, or vice versa).
+export const HERO_VIEW_BOX = "0 0 220 220";
+
 // Fields that identify which build drew a fingerprint. thumbs.json must carry
 // the same values as the manifest, so thumbnails from an older or different
 // build (another corpus, Dref, parameter set or librosa) are never mixed in.
@@ -34,6 +38,12 @@ const SHA256 = /^[0-9a-f]{64}$/;
 
 export function isValidPathData(value) {
   return typeof value === "string" && PATH_DATA.test(value);
+}
+
+// Only the generator's per-track reference is eligible for an on-demand fetch.
+export function isValidHeroArtifact(artifact, track) {
+  return typeof track?.id === "string" && track.id.length > 0 &&
+    artifact === `fingerprints/${track.id}.json`;
 }
 
 function isPlainObject(value) {
@@ -89,8 +99,76 @@ export function parseThumbs(payload, summary) {
   return thumbs;
 }
 
+// Frame counts are whole numbers, and the generator only writes a hero for a
+// track with frames inside the measurement domain: every in-domain frame is
+// voiced and every voiced frame is one of the track's frames.
+function parseFrameCounts(frames) {
+  if (!isPlainObject(frames)) return null;
+  const { total_frames: total, voiced_frames: voiced, in_domain_frames: inDomain } = frames;
+  if (![total, voiced, inDomain].every(Number.isInteger)) return null;
+  if (!(inDomain > 0 && inDomain <= voiced && voiced <= total)) return null;
+  return { totalFrames: total, voicedFrames: voiced, inDomainFrames: inDomain };
+}
+
+// fingerprints/<id>.json -> { path, viewBox, frames }, or null unless it is
+// this track's hero from the same build as the thumbnails (`identity` is the
+// one attachFingerprints put on the track's available fingerprint).
+// Never throws: nothing is coerced, so odd JSON values just fail the checks.
+export function parseHero(payload, track, identity) {
+  if (!isPlainObject(payload) || !isPlainObject(identity)) return null;
+  if (identity.version !== SUPPORTED_FINGERPRINT_VERSION || !hasValidIdentity(identity)) return null;
+  if (typeof track?.id !== "string" || payload.id !== track.id) return null;
+  if (IDENTITY_FIELDS.some((field) => payload[field] !== identity[field])) return null;
+  if (payload.view_box !== HERO_VIEW_BOX) return null;
+  if (!isValidPathData(payload.hero)) return null;
+
+  const frames = parseFrameCounts(payload.frames);
+  if (!frames) return null;
+  return { path: payload.hero, viewBox: HERO_VIEW_BOX, frames };
+}
+
+// Where loading the current track's hero stands, given the last completed load
+// (`result.trackId` is the track it was for; `result.hero` is what
+// fetchFingerprintHero returned):
+//   { status: "loading" }, { status: "ready", hero }  or  { status: "unavailable", reason }
+// A result for another track - an earlier selection whose file arrived late -
+// still counts as loading, so it is never drawn under the wrong title.
+export function resolveHeroLoad(track, result) {
+  if (typeof track?.id !== "string") return { status: "unavailable", reason: UNAVAILABLE.missing };
+  if (result?.trackId !== track.id) return { status: "loading" };
+  if (result.hero?.status === "available") return { status: "ready", hero: result.hero };
+  return { status: "unavailable", reason: result.hero?.reason || UNAVAILABLE.missing };
+}
+
+// Plain-language reasons for a missing fingerprint. The first three are the
+// generator's own (song_fingerprint/measure.py), stored when it found nothing
+// to draw; the rest come from loading and checking the files here.
+const UNAVAILABLE_TEXT = {
+  no_voiced_frames: "No part of this track is loud enough to measure, so there is nothing to draw.",
+  no_frames_in_domain:
+    "None of this track's sound falls inside the brightness range the fingerprint measures, so there is nothing to draw.",
+  below_visited_threshold:
+    "This track doesn't stay in any one place long enough to form a shape, so nothing is drawn.",
+  [UNAVAILABLE.unsupportedVersion]:
+    "This fingerprint was made by a different version than this page can read.",
+  [UNAVAILABLE.malformed]: "The fingerprint file couldn't be loaded or doesn't match this library build.",
+};
+
+// The reason comes from library.json and isn't validated on the way in, so
+// anything but a string gets the general message: Object.hasOwn would coerce
+// it to a key, which throws for values like {"toString": null}.
+export function unavailableText(reason) {
+  return typeof reason === "string" && Object.hasOwn(UNAVAILABLE_TEXT, reason)
+    ? UNAVAILABLE_TEXT[reason]
+    : "There is no fingerprint for this track in the library.";
+}
+
 // Adds `fingerprint` to each track:
-//   { status: "available", path, viewBox }  or  { status: "unavailable", reason }
+//   { status: "available", path, viewBox, heroArtifact, identity }
+//   or { status: "unavailable", reason }
+// `heroArtifact` is the track's hero file (null if the manifest's reference
+// isn't a usable path; the thumbnail is still shown) and `identity` is the
+// build the thumbnail came from, which the hero must match (see parseHero).
 // `summary` is parseFingerprintSummary's result; `thumbs` is parseThumbs's.
 export function attachFingerprints(tracks, summary, thumbs) {
   return tracks.map((track) => ({ ...track, fingerprint: trackFingerprint(track, summary, thumbs) }));
@@ -109,5 +187,6 @@ function trackFingerprint(track, summary, thumbs) {
 
   const path = thumbs[track.id];
   if (!path) return { status: "unavailable", reason: UNAVAILABLE.malformed };
-  return { status: "available", path, viewBox: summary.viewBox };
+  const heroArtifact = isValidHeroArtifact(ref.artifact, track) ? ref.artifact : null;
+  return { status: "available", path, viewBox: summary.viewBox, heroArtifact, identity: summary.identity };
 }
