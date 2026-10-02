@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useId, useReducer } from "react";
+import { useState, useRef, useEffect, useId, useLayoutEffect, useReducer } from "react";
 import { Music, Upload } from "lucide-react";
 import Fingerprint from "./Fingerprint";
 import { Button } from "@/components/ui/button";
@@ -35,8 +35,10 @@ function SongPanel({ label, track, rmsMax, centroidMax, onFeaturesChange }) {
       );
   }, [track]);
 
-  // Whichever load wins, ComparePage sees the slot's current features.
-  useEffect(() => {
+  // Whichever load wins, ComparePage sees the slot's current features. A layout
+  // effect, so React applies the parent's update before the browser paints:
+  // a new song never appears here while Findings still shows the old pair.
+  useLayoutEffect(() => {
     onFeaturesChange(features);
   }, [features, onFeaturesChange]);
 
