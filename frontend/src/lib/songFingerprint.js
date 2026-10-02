@@ -127,6 +127,42 @@ export function parseHero(payload, track, identity) {
   return { path: payload.hero, viewBox: HERO_VIEW_BOX, frames };
 }
 
+// Where loading the current track's hero stands, given the last completed load
+// (`result.trackId` is the track it was for; `result.hero` is what
+// fetchFingerprintHero returned):
+//   { status: "loading" }, { status: "ready", hero }  or  { status: "unavailable", reason }
+// A result for another track - an earlier selection whose file arrived late -
+// still counts as loading, so it is never drawn under the wrong title.
+export function resolveHeroLoad(track, result) {
+  if (typeof track?.id !== "string") return { status: "unavailable", reason: UNAVAILABLE.missing };
+  if (result?.trackId !== track.id) return { status: "loading" };
+  if (result.hero?.status === "available") return { status: "ready", hero: result.hero };
+  return { status: "unavailable", reason: result.hero?.reason || UNAVAILABLE.missing };
+}
+
+// Plain-language reasons for a missing fingerprint. The first three are the
+// generator's own (song_fingerprint/measure.py), stored when it found nothing
+// to draw; the rest come from loading and checking the files here.
+const UNAVAILABLE_TEXT = {
+  no_voiced_frames: "No part of this track is loud enough to measure, so there is nothing to draw.",
+  no_frames_in_domain:
+    "None of this track's sound falls inside the brightness range the fingerprint measures, so there is nothing to draw.",
+  below_visited_threshold:
+    "This track doesn't stay in any one place long enough to form a shape, so nothing is drawn.",
+  [UNAVAILABLE.unsupportedVersion]:
+    "This fingerprint was made by a different version than this page can read.",
+  [UNAVAILABLE.malformed]: "The fingerprint file couldn't be loaded or doesn't match this library build.",
+};
+
+// The reason comes from library.json and isn't validated on the way in, so
+// anything but a string gets the general message: Object.hasOwn would coerce
+// it to a key, which throws for values like {"toString": null}.
+export function unavailableText(reason) {
+  return typeof reason === "string" && Object.hasOwn(UNAVAILABLE_TEXT, reason)
+    ? UNAVAILABLE_TEXT[reason]
+    : "There is no fingerprint for this track in the library.";
+}
+
 // Adds `fingerprint` to each track:
 //   { status: "available", path, viewBox, heroArtifact, identity }
 //   or { status: "unavailable", reason }

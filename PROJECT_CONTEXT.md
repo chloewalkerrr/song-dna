@@ -6,9 +6,11 @@ Most of this document describes Song DNA's overall concept and long-term vision 
 
 In short: the current app has a Python/FastAPI backend (RMS energy computed manually via numpy, spectral centroid and beat tracking via librosa) and a React/Vite frontend styled with Tailwind CSS and shadcn/ui, dark by default with a light/dark toggle. It has three pages:
 
-- **Home** — an introduction built around one real library track drawn as an annotated figure, with a library index and a small two-track preview that leads into Compare.
-- **Library** — browses a small static library of precomputed tracks (currently synthetic placeholder audio), with search, genre filters, mini-fingerprint previews and Song A / Song B selection. Choosing Compare with both slots filled opens Compare with those two tracks loaded from their precomputed features.
-- **Compare** — two songs, either the two tracks selected in the Library or uploaded files (an upload can also replace a library track), are rendered as segmented dual-strand fingerprints on a shared scale, and described by a small set of rule-based findings (energy, dynamic range, energy trend, brightness) computed from measured features.
+- **Home** — an introduction built around one selected library track: Fig. 1 its Song Fingerprint beside a library index that chooses the track, Fig. 2 its interactive Song DNA, Fig. 3 a same-scale comparison preview that leads into Compare, and a short methodology.
+- **Library** — browses a small static library of precomputed tracks (currently synthetic placeholder audio), with search, genre filters, Song Fingerprint thumbnails and Song A / Song B selection. Choosing Compare with both slots filled opens Compare with those two tracks loaded from their precomputed features.
+- **Compare** — two songs, either the two tracks selected in the Library or uploaded files (an upload can also replace a library track), are rendered as segmented dual-strand Song DNA charts on a shared scale, and described by a small set of rule-based findings (energy, dynamic range, energy trend, brightness) computed from measured features.
+
+Each track is drawn in two layers: the **Song Fingerprint**, a whole-track identity mark with no time axis (chroma entropy × spectral centroid), and **Song DNA**, energy and brightness over time. The "DNA fingerprint" language in the vision below predates that split; in the current product "fingerprint" means the Song Fingerprint and the time-based chart is Song DNA.
 
 There is no database, no overall similarity score, and no support for comparing more than two songs yet.
 
@@ -68,6 +70,8 @@ These mappings are initial ideas and should be evaluated before implementation.
 
 Every visual property must have a documented relationship to an audio feature.
 
+The approved visual direction has since moved away from "luminous" and "futuristic": it is a restrained, editorial look (neutral black and white, one ochre accent for the current state, no gradients or glow). See `PRODUCT.md` and the "UI and design" section of `AGENTS.md`.
+
 ## Candidate audio features
 
 Potential features include:
@@ -95,6 +99,8 @@ Each feature should be understood before it is added.
 - **Beat times** — detected via `librosa.beat.beat_track` on an 11025 Hz copy of the audio; shown as time-positioned beat markers on the fingerprint.
 
 RMS and centroid are frame-aligned (same length, same `times` array); beat times are sparse timestamps. All are stored together in the `AudioFeatures` dataclass (`src/song_dna/features.py`), produced by `extract_features()`.
+
+- **Song Fingerprint (E1B1/1)** — a separate whole-track measurement (`src/song_dna/song_fingerprint/`): per-frame chroma entropy and log spectral centroid of voiced frames, binned into a density and drawn as ridge lines. Computed for the static library at build time only; see `README.md`.
 
 ## Song sourcing
 

@@ -1,75 +1,64 @@
-import FingerprintStrands from "@/FingerprintStrands";
+import SongFingerprint from "@/components/SongFingerprint";
 import { formatDuration } from "@/format";
-import { useElementWidth } from "@/hooks/use-element-width";
 import { cn } from "@/lib/utils";
 
-const STRAND_HEIGHT = 40;
-
-// A small copy of the track's fingerprint on the page's shared scale, so the
-// rows can be compared by eye. Beats are left out: at this size they crowd
-// the strands without helping the comparison.
-function RowStrand({ features, scale, current }) {
-  const [ref, width] = useElementWidth();
-  return (
-    <div ref={ref} className="w-full contain-inline-size" style={{ height: STRAND_HEIGHT }}>
-      {width > 0 && (
-        <FingerprintStrands
-          features={features}
-          width={width}
-          height={STRAND_HEIGHT}
-          rmsMax={scale.rmsMax}
-          centroidMax={scale.centroidMax}
-          showBeats={false}
-          showPlayhead={false}
-          tone={current ? "data" : "muted"}
-        />
-      )}
-    </div>
-  );
-}
-
-// The library as a numbered index: choosing a row makes that track Fig. 1.
-// The current row stays marked in place; the page never scrolls on its own.
-function TrackIndex({ tracks, featuresById, scale, currentId, onSelect }) {
+// The library as a numbered index: choosing a row makes that track the page's
+// current track (Fig. 1 and the figures below it). Each row shows the track's
+// Song Fingerprint thumbnail at its native 52 px, neutral like the library
+// cards. The current row is marked by more than colour: an ochre "now" rule
+// and number, a heavier title, and full-strength ink where the other
+// thumbnails are faded. The page never scrolls on its own.
+function TrackIndex({ tracks, featuresById, currentId, onSelect }) {
   return (
     <ol className="border-t">
       {tracks.map((track, i) => {
-        const features = featuresById.get(track.id);
+        // A track without its analysis can't drive the figures below, so it can't be chosen.
+        const available = featuresById.has(track.id);
         const current = track.id === currentId;
         return (
           <li key={track.id} className="border-b">
             <button
               type="button"
               aria-pressed={current}
-              disabled={!features}
+              disabled={!available}
               onClick={() => onSelect(track.id)}
               className={cn(
-                "grid w-full grid-cols-[1.75rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-2 py-3 text-left outline-none transition-colors",
-                "hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed",
-                "lg:grid-cols-[1.75rem_10rem_2.5rem_minmax(0,1fr)] lg:gap-x-4",
-                current && "bg-muted hover:bg-muted"
+                "relative grid w-full grid-cols-[1.5rem_3.25rem_minmax(0,1fr)_auto] items-center gap-x-3 px-2 py-2.5 text-left outline-none transition-colors",
+                "hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60",
+                current && "bg-muted/60 hover:bg-muted/60"
               )}
             >
+              {current && (
+                <span aria-hidden="true" className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-now" />
+              )}
               <span
                 className={cn(
                   "text-sm tabular-nums",
-                  current ? "text-foreground" : "text-muted-foreground"
+                  current ? "font-medium text-now" : "text-muted-foreground"
                 )}
               >
                 {String(i + 1).padStart(2, "0")}
               </span>
-              <span className={cn("truncate text-sm", current && "font-semibold")}>
-                {track.title}
+              <SongFingerprint
+                fingerprint={track.fingerprint}
+                className={cn("size-13", current ? "text-foreground" : "text-foreground/45")}
+              />
+              <span className="min-w-0">
+                <span className={cn("block truncate text-sm", current && "font-semibold")}>
+                  {track.title}
+                </span>
+                {available ? (
+                  track.description && (
+                    <span className="block truncate text-xs text-muted-foreground" title={track.description}>
+                      {track.description}
+                    </span>
+                  )
+                ) : (
+                  <span className="block text-xs text-muted-foreground">Analysis unavailable</span>
+                )}
               </span>
               <span className="text-sm text-muted-foreground tabular-nums">
                 {formatDuration(track.duration_seconds)}
-              </span>
-              <span className="col-span-2 col-start-2 lg:col-span-1 lg:col-start-auto">
-                {features ? (
-                  <RowStrand features={features} scale={scale} current={current} />
-                ) : (
-                  <span className="text-xs text-muted-foreground">Analysis unavailable</span>
-                )}
               </span>
             </button>
           </li>

@@ -1,7 +1,10 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { ArrowRight } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import FingerprintFigure from "@/components/home/FingerprintFigure";
 import PairStudy from "@/components/home/PairStudy";
 import SpecimenFigure from "@/components/home/SpecimenFigure";
 import TrackIndex from "@/components/home/TrackIndex";
@@ -11,7 +14,7 @@ import { useLibraryFeatures } from "@/hooks/use-library-features";
 import { useSelection } from "@/hooks/use-selection";
 import { getLibraryScale, measurementInterval } from "@/specimen";
 
-// The track Fig. 1 opens with. The page uses one scale for every track, and
+// The track the page opens with (Fig. 1 and Fig. 2). The page uses one scale for every track, and
 // Dev Sweep is the loudest in the library (its slice averages reach ~0.34 RMS
 // against Dev Sections' ~0.11), so it is the one that fills the figure on that
 // shared scale: two slow swells in energy, repeating chirps in brightness.
@@ -19,29 +22,44 @@ import { getLibraryScale, measurementInterval } from "@/specimen";
 // Falls back to the first track that loaded if it is missing.
 const DEFAULT_SPECIMEN_ID = "dev-sweep";
 
+function MethodNote({ term, figure, children }) {
+  return (
+    <div>
+      <dt className="mb-1 text-sm font-medium">
+        {term} <span className="font-normal text-muted-foreground">· {figure}</span>
+      </dt>
+      <dd className="text-xs leading-relaxed text-muted-foreground">{children}</dd>
+    </div>
+  );
+}
+
+// How each figure is made, kept short: one note per figure, with the
+// measurement rate taken from the current track's own data.
 function Methodology({ features }) {
-  const { frames, intervalMs } = measurementInterval(features);
+  const { intervalMs } = measurementInterval(features);
   return (
     <section aria-labelledby="method-heading" className="mt-20 border-t pt-6">
-      <h2 id="method-heading" className="mb-2 text-sm font-medium">
+      <h2 id="method-heading" className="mb-4 text-sm font-medium">
         How it&apos;s measured
       </h2>
-      <p className="max-w-prose text-xs leading-relaxed text-muted-foreground">
-        Each track is analysed
-        {Number.isFinite(features.sample_rate) &&
-          ` at ${features.sample_rate.toLocaleString("en-US")} Hz`}
-        , with a measurement about every {Math.round(intervalMs)} ms (
-        {frames.toLocaleString("en-US")}{" "}
-        for this {Math.round(features.duration_seconds)}-second clip). Energy is the RMS
-        (root mean square) of each frame, computed directly with NumPy; brightness is the
-        spectral centroid and beats come from librosa&apos;s beat tracker. The figure averages
-        those measurements into {SEGMENT_COUNT} slices for display only. Every strand on
-        this page shares one scale: bar heights are relative to the loudest moment and the
-        95th-percentile brightness across the whole library (Compare applies the same rules to
-        its pair), so heights compare directly. There is no machine learning, and SongDNA
-        doesn&apos;t infer genre or mood from the audio. Uploading your own audio in Compare
-        needs the local analysis server running.
-      </p>
+      <dl className="grid gap-5 sm:grid-cols-3 sm:gap-8">
+        <MethodNote term="Song Fingerprint" figure="Fig. 1">
+          The whole track as one mark, with no time axis: where it sits between tonal and
+          spread (chroma entropy) and dark and bright (spectral centroid). An identity mark,
+          not a unique identifier or a judgement of genre, mood or quality.
+        </MethodNote>
+        <MethodNote term="Song DNA" figure="Fig. 2">
+          Energy (RMS) and brightness (spectral centroid), measured about every{" "}
+          {Math.round(intervalMs)} ms and averaged into {SEGMENT_COUNT} segments; beat ticks
+          from librosa&apos;s beat tracker. Home uses one scale for the whole library: its loudest frame
+          and its 95th-percentile brightness (brighter segments stop at full length).
+        </MethodNote>
+        <MethodNote term="Comparison" figure="Fig. 3">
+          Two tracks on that same scale. Compare adds rule-based findings from the
+          measurements, with no overall similarity score and no machine learning. Your own
+          audio needs the local analysis server.
+        </MethodNote>
+      </dl>
     </section>
   );
 }
@@ -76,11 +94,28 @@ function HomePage() {
 
   return (
     <div className="mx-auto max-w-[920px]">
-      <h1 className="mb-1 text-3xl font-semibold tracking-tight">See how a track is measured</h1>
-      <p className="mb-10 max-w-[60ch] text-sm text-muted-foreground">
-        SongDNA measures how loud and how bright a short audio clip is, moment by moment,
-        and draws it as a fingerprint.
+      {/* Intro: a serif headline (headings and figure labels only use serif),
+          then two links styled as actions. */}
+      <h1 className="mb-3 font-serif text-3xl font-normal tracking-tight">
+        See how a track is measured
+      </h1>
+      <p className="max-w-[62ch] text-sm leading-relaxed text-muted-foreground">
+        SongDNA draws each track two ways from the same audio. Its{" "}
+        <span className="text-foreground">Song Fingerprint</span> summarises the whole track in
+        one mark, with no time axis. Its <span className="text-foreground">Song DNA</span> shows
+        how loudness and brightness change from moment to moment.
       </p>
+      <div className="mt-5 mb-14 flex flex-wrap items-center gap-3 lg:mb-10">
+        <Button asChild size="sm">
+          <Link to="/library">Browse library</Link>
+        </Button>
+        <Button asChild size="sm" variant="ghost">
+          <Link to="/compare">
+            Analyse your own audio
+            <ArrowRight />
+          </Link>
+        </Button>
+      </div>
 
       {status === "error" && (
         <Alert variant="destructive">
@@ -108,36 +143,43 @@ function HomePage() {
 
       {ready && specimen && (
         <>
-          <SpecimenFigure
-            track={specimen}
-            features={features.byId.get(specimen.id)}
-            scale={scale}
-          />
+          {/* Top row: the current track's Song Fingerprint beside the index
+              that chooses it. Stacked (figure first) below lg. */}
+          <div className="grid gap-x-12 gap-y-14 lg:grid-cols-[20rem_minmax(0,1fr)] lg:gap-x-16">
+            <FingerprintFigure track={specimen} />
 
-          <section aria-labelledby="library-heading" className="mt-20">
-            <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-              <h2 id="library-heading" className="text-lg font-semibold tracking-tight">
-                The library
-              </h2>
-              <Link
-                to="/library"
-                className="rounded-sm text-sm text-muted-foreground underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                Browse, search and pick tracks →
-              </Link>
-            </div>
-            <p className="mb-5 max-w-[60ch] text-sm text-muted-foreground">
-              {tracks.length} synthetic test tracks, generated for development. Choose one to
-              make it Fig. 1.
-            </p>
-            <TrackIndex
-              tracks={tracks}
-              featuresById={features.byId}
+            <section aria-labelledby="library-heading">
+              <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+                <h2 id="library-heading" className="text-lg font-semibold tracking-tight">
+                  The library
+                </h2>
+                <Link
+                  to="/library"
+                  className="rounded-sm text-sm text-muted-foreground underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  Browse, search and pick tracks →
+                </Link>
+              </div>
+              <p className="mb-5 max-w-[60ch] text-sm text-muted-foreground">
+                {tracks.length} synthetic test tracks, generated for development. Choose one to
+                make it Fig. 1.
+              </p>
+              <TrackIndex
+                tracks={tracks}
+                featuresById={features.byId}
+                currentId={specimen.id}
+                onSelect={setSpecimenId}
+              />
+            </section>
+          </div>
+
+          <div className="mt-20">
+            <SpecimenFigure
+              track={specimen}
+              features={features.byId.get(specimen.id)}
               scale={scale}
-              currentId={specimen.id}
-              onSelect={setSpecimenId}
             />
-          </section>
+          </div>
 
           <section aria-label="Comparing two tracks" className="mt-20">
             <PairStudy

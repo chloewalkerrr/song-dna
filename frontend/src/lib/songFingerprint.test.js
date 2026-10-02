@@ -6,8 +6,10 @@ import {
   parseFingerprintSummary,
   parseHero,
   parseThumbs,
+  resolveHeroLoad,
   SUPPORTED_FINGERPRINT_VERSION,
   THUMB_VIEW_BOX,
+  unavailableText,
 } from "./songFingerprint";
 
 const identity = {
@@ -339,6 +341,108 @@ describe("parseHero", () => {
   it("rejects a payload that isn't a hero object", () => {
     for (const payload of [null, undefined, HERO_PATH, [rawHero], throwsOnCoercion]) {
       expect(parseHero(payload, track, identity)).toBeNull();
+    }
+  });
+});
+
+describe("resolveHeroLoad", () => {
+  const track = { id: "dev-pulse" };
+  const hero = {
+    status: "available",
+    path: "M110.0 35.2L112.4 36.0",
+    viewBox: "0 0 220 220",
+    frames: { totalFrames: 1292, voicedFrames: 1081, inDomainFrames: 1081 },
+  };
+
+  it("is loading until a result for the track arrives", () => {
+    expect(resolveHeroLoad(track, { trackId: null, hero: null })).toEqual({ status: "loading" });
+    expect(resolveHeroLoad(track, undefined)).toEqual({ status: "loading" });
+  });
+
+  it("is ready with the hero once it has loaded", () => {
+    expect(resolveHeroLoad(track, { trackId: "dev-pulse", hero })).toEqual({ status: "ready", hero });
+  });
+
+  it("is unavailable with the loader's reason", () => {
+    for (const reason of ["no_voiced_frames", "malformed", "unsupported_version"]) {
+      expect(resolveHeroLoad(track, { trackId: "dev-pulse", hero: { status: "unavailable", reason } })).toEqual({
+        status: "unavailable",
+        reason,
+      });
+    }
+  });
+
+  it("treats an unexpected result for the track as unavailable rather than ready", () => {
+    for (const bad of [null, undefined, {}, { status: "unavailable" }]) {
+      expect(resolveHeroLoad(track, { trackId: "dev-pulse", hero: bad })).toEqual({
+        status: "unavailable",
+        reason: "missing",
+      });
+    }
+  });
+
+  it("keeps loading when the last result belongs to another track", () => {
+    // A late hero for the previous selection must not appear for the current one.
+    expect(resolveHeroLoad({ id: "dev-sweep" }, { trackId: "dev-pulse", hero })).toEqual({ status: "loading" });
+    expect(
+      resolveHeroLoad({ id: "dev-sweep" }, { trackId: "dev-pulse", hero: { status: "unavailable", reason: "malformed" } })
+    ).toEqual({ status: "loading" });
+  });
+
+  it("is unavailable when there is no track", () => {
+    for (const missing of [null, undefined, {}]) {
+      expect(resolveHeroLoad(missing, { trackId: null, hero: null })).toEqual({
+        status: "unavailable",
+        reason: "missing",
+      });
+    }
+  });
+});
+
+describe("unavailableText", () => {
+  const GENERAL = "There is no fingerprint for this track in the library.";
+
+  it.each([
+    ["no_voiced_frames", "No part of this track is loud enough to measure, so there is nothing to draw."],
+    [
+      "no_frames_in_domain",
+      "None of this track's sound falls inside the brightness range the fingerprint measures, so there is nothing to draw.",
+    ],
+    [
+      "below_visited_threshold",
+      "This track doesn't stay in any one place long enough to form a shape, so nothing is drawn.",
+    ],
+    ["unsupported_version", "This fingerprint was made by a different version than this page can read."],
+    ["malformed", "The fingerprint file couldn't be loaded or doesn't match this library build."],
+    ["missing", GENERAL],
+  ])("explains %s", (reason, text) => {
+    expect(unavailableText(reason)).toBe(text);
+  });
+
+  it("falls back to the general message for unknown strings, including inherited keys", () => {
+    for (const reason of ["something_new", "", "toString", "__proto__", "constructor"]) {
+      expect(unavailableText(reason)).toBe(GENERAL);
+    }
+  });
+
+  it("falls back to the general message for non-string reasons without coercing or throwing", () => {
+    for (const reason of [
+      undefined,
+      null,
+      {},
+      { reason: "malformed" },
+      throwsOnCoercion,
+      JSON.parse('{"toString": null}'),
+      ["malformed"],
+      [],
+      0,
+      42,
+      Number.NaN,
+      true,
+      false,
+    ]) {
+      expect(() => unavailableText(reason)).not.toThrow();
+      expect(unavailableText(reason)).toBe(GENERAL);
     }
   });
 });

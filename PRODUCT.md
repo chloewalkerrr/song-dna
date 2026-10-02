@@ -25,10 +25,20 @@ web
 
 ## Product Purpose
 
-SongDNA is an interactive music-analysis playground. It measures a short audio clip's
-loudness (RMS energy), brightness (spectral centroid) and beats, and draws them as a
-segmented dual-strand fingerprint that can be played back and compared with a second
-track on a shared scale, with rule-based findings that describe measured differences.
+SongDNA is an interactive music-analysis playground. It draws each track in three
+distinct layers:
+
+- **Song Fingerprint**: a whole-track identity summary with no time axis, based on
+  chroma entropy (tonal to spread) and spectral centroid (dark to bright). An
+  identity mark, not a unique identifier, and not a genre, mood, quality or
+  similarity score.
+- **Song DNA**: how the track changes over time. Loudness (RMS energy) and
+  brightness (spectral centroid) are averaged into 40 display segments, with beat
+  markers, and the track can be played back. On Home every track shares one
+  library-wide scale.
+- **Comparison**: two tracks on the same scale. Compare adds rule-based findings
+  that describe measured differences, with no overall similarity score and no
+  machine learning.
 
 Success: a visitor understands the idea from the real visualisation within a minute,
 then explores the library, compares two tracks, and trusts every claim because each
@@ -46,18 +56,26 @@ quality. The real data and its visualisation are the interesting part, not styli
   backend at `127.0.0.1:8000`.
 - Library browsing and previews work from static precomputed files with no backend;
   uploads and findings need the backend running.
-- Routes today: Home (a concise visual introduction built around one real track,
-  leading into Library and Compare), Library (browse, search, preview, pick Song A /
-  Song B) and Compare (two fingerprints on a shared scale, playback, findings).
+- Routes today:
+  - Home: a concise visual introduction built around one selected library track.
+    An intro, Fig. 1 Song Fingerprint beside a library index that chooses the
+    track, Fig. 2 Song DNA (interactive, playable), Fig. 3 a same-scale comparison
+    preview that opens Compare, and a short methodology.
+  - Library: browse, search, preview, pick Song A / Song B.
+  - Compare: two Song DNA charts on a shared scale, playback, findings.
 
 ## Capabilities and Constraints
 
-- Measured per track: RMS energy and spectral centroid (frame-aligned), beat times,
-  an estimated tempo, and duration. Nothing else is measured yet.
+- Measured per track for Song DNA: RMS energy and spectral centroid
+  (frame-aligned), beat times, an estimated tempo, and duration.
+- Measured per library track for the Song Fingerprint (at library build time):
+  per-frame chroma entropy, log spectral centroid and loudness. Uploads have no
+  fingerprint yet.
 - Detected tempo is an estimate and can be wrong on the placeholder audio; present it
   as an estimate.
-- Library previews are normalised per track (shape, not magnitude). Full Compare
-  fingerprints share scales across both songs.
+- Scales: Compare shares them across its two songs; Home shares one scale across
+  the whole library. The older per-track 48-segment previews are still generated
+  but no longer shown.
 - Out of scope unless explicitly approved: accounts, streaming-service APIs, cloud
   deployment, deep-learning embeddings, generative AI (see PROJECT_CONTEXT.md).
 - No new dependencies without the owner's approval.
@@ -75,15 +93,22 @@ Confirmed by the owner as binding:
   heavy drop shadows, invented artwork. One consistent radius system.
 - Light mode is coherently light and dark mode coherently dark: the shell and page
   share one surface per theme. Dark is the default.
+- The Song Fingerprint provides the visual identity. Prefer whitespace and hairlines
+  to cards; keep radius and shadows restrained.
 - Colour is restrained and carries information:
-  - Full fingerprints and other comparison or data visualisations use the semantic
-    data colours: violet for energy, cyan for brightness. Song A / Song B identity in
-    these views should come from explicit A/B markers or labels, never from
+  - The base is neutral black and white. One warm accent, a restrained ochre, marks
+    the current or interaction state (current track, playhead, the slice being
+    read). It is never a data series.
+  - Home uses no violet, cyan or blue. Song DNA there is drawn in neutral ink and
+    told apart by form: energy as solid bars rising, brightness as open bars hanging,
+    beats as ticks. A and B are told apart by solid and outlined letter badges.
+  - Compare and Library still use the original colours: violet for energy and cyan
+    for brightness in Compare's charts, and violet / blue for Song A / Song B
+    selection. A/B identity comes from explicit markers or labels, never from
     recolouring the data.
-  - Violet and blue identify Song A and Song B. Library mini fingerprints deliberately
-    take these slot colours when a track is selected (neutral otherwise) to show the
-    A/B selection, as AGENTS.md specifies; they are per-track previews, not
-    comparison views.
+  - Song Fingerprints are always monochrome, including when a track is selected.
+- Typography: Geist for body, controls and UI text. Source Serif 4, at a restrained
+  weight, only for Home's editorial headline and figure labels.
 - The name is written "SongDNA" as a plain wordmark.
 
 ## Evidence on Hand
@@ -92,14 +117,16 @@ Confirmed by the owner as binding:
   development placeholders generated by `scripts/generate_dev_tracks.py`. Say so
   wherever it matters; no real, licensed tracks have been added yet.
 - Precomputed features per track in `frontend/public/library/features/*.json`
-  (duration, tempo estimate, RMS, centroid, beat times).
+  (duration, tempo estimate, RMS, centroid, beat times), and Song Fingerprints in
+  `frontend/public/library/fingerprints/` (all thumbnails in `thumbs.json`, one
+  hero per track with its frame counts).
 - No testimonials, users, benchmarks or accuracy figures exist. Do not invent any
   number: everything displayed must come from SongDNA's own data.
 
 ## Product Principles
 
-1. Show the measurement, then explain it. The real fingerprint is the main visual;
-   explanation sits beside the data it describes.
+1. Show the measurement, then explain it. The real fingerprint and DNA are the main
+   visuals; explanation sits beside the data it describes.
 2. Understandable first, rewarding on a closer look. Plain language leads;
    implementation details (frame sizes, libraries, "no ML") stay available but
    visually secondary.
@@ -112,5 +139,6 @@ Confirmed by the owner as binding:
 
 Interactive elements need accessible names, visible keyboard focus and correct
 pressed/status semantics (see AGENTS.md "UI and design"). Colour is never the only
-carrier of meaning: A/B slots always have letter markers, and data strands have a
-legend.
+carrier of meaning: A/B slots always have letter markers, data strands have a
+legend, and on Home energy and brightness differ by form (solid / open) as well as
+direction.

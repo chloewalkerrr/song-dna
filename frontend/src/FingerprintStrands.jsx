@@ -11,14 +11,9 @@ import { SEGMENT_COUNT, computeBarHeight, getSegmentLayout, timeToX } from "./fi
 // it actually took to see individual, separated dots on that same song.
 const MIN_BEAT_MARKER_SPACING_PX = 18;
 
-// Full class strings (not built dynamically) so Tailwind can see them.
-// "data" is the fingerprint's own palette (energy violet, brightness cyan);
-// "muted" draws the same shape in neutral tones, for tracks that are shown
-// for reference rather than being the one under discussion.
-const TONES = {
-  data: { energy: "fill-violet-500", brightness: "fill-cyan-500" },
-  muted: { energy: "fill-foreground/40", brightness: "fill-foreground/20" },
-};
+// The default variant's palette (energy violet, brightness cyan). Full class
+// strings (not built dynamically) so Tailwind can see them.
+const DATA = { energy: "fill-violet-500", brightness: "fill-cyan-500" };
 
 // The "instrument" variant (Home): the same measurements drawn in neutral ink,
 // with energy and brightness told apart by form, not colour - solid bars rise
@@ -28,7 +23,6 @@ const TONES = {
 // a brightness bar reads as open at the 40-segment widths Home uses).
 // The playhead is the one warm accent: the ochre "now" token (index.css)
 // marks where playback is.
-// `tone` doesn't apply to this variant.
 const INSTRUMENT_BAR_WIDTH_RATIO = 0.3;
 const INSTRUMENT = {
   energy: "fill-foreground",
@@ -53,12 +47,10 @@ function FingerprintStrands({
   currentTime = 0,
   showPlayhead = true,
   showBeats = true,
-  tone = "data",
   variant = "default",
 }) {
   const centerY = height / 2;
   const halfHeight = height / 2;
-  const classes = TONES[tone];
   const instrument = variant === "instrument";
 
   const { cellWidth, barWidth } = getSegmentLayout(
@@ -109,7 +101,7 @@ function FingerprintStrands({
             width={barWidth}
             height={barHeight}
             rx={barWidth / 2}
-            className={classes.energy}
+            className={DATA.energy}
           />
         );
       })}
@@ -140,7 +132,7 @@ function FingerprintStrands({
             width={barWidth}
             height={barHeight}
             rx={barWidth / 2}
-            className={classes.brightness}
+            className={DATA.brightness}
           />
         );
       })}
