@@ -61,6 +61,12 @@ export function formatHz(hz) {
   return `${Math.round(hz).toLocaleString("en-US")} Hz`;
 }
 
+// "0.341 RMS". RMS here is a 0-1 amplitude, so three decimals separate the
+// quiet library tracks (~0.1) without implying more precision than that.
+export function formatRms(rms) {
+  return `${rms.toFixed(3)} RMS`;
+}
+
 // "0:12.5": the readout needs sub-second precision because a slice of a
 // 30-second clip lasts 0.75 s, which formatDuration would round away.
 // Rounds to tenths first so 59.96 s becomes "1:00.0", not "0:60.0".

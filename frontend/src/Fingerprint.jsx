@@ -1,52 +1,35 @@
 import FingerprintStrands from "./FingerprintStrands";
 import { useElementWidth } from "@/hooks/use-element-width";
 
-const HEIGHT = 200;
+// Shorter than Home's 240px figure: Compare stacks two of these, and at 160px
+// both songs and the start of the findings fit on one desktop screen. Checked
+// visually at 1440 x 1000.
+const HEIGHT = 160;
 
-function LegendItem({ className, label }) {
-  return (
-    <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-      <span className={`inline-block h-2 w-3.5 rounded-sm ${className}`} />
-      {label}
-    </div>
-  );
-}
-
-function LegendDot({ label }) {
-  return (
-    <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-      <span className="inline-block size-1.5 rounded-full bg-foreground/50" />
-      {label}
-    </div>
-  );
-}
-
-// Draws at the width of its container (measured, not fixed), so it fits a
-// half-width comparison card as well as a full-width one. The strands
-// themselves are drawn by FingerprintStrands, which Home shares.
+// One song's Song DNA in Compare, drawn in Home's neutral "instrument" style
+// on the pair's shared scale. Draws at the width of its container (measured,
+// not fixed). The legend is drawn once for the page by ComparePage, not here.
 function Fingerprint({ features, currentTime, rmsMax, centroidMax }) {
   const [containerRef, width] = useElementWidth();
 
+  // `contain-inline-size`: the SVG is drawn at a measured pixel width, and
+  // without containment that width would stop the column from shrinking when
+  // the window narrows (so it would never be re-measured smaller).
   return (
-    <div className="rounded-md border border-border bg-card p-5">
-      <div ref={containerRef} className="w-full" style={{ height: HEIGHT }}>
-        {width > 0 && (
-          <FingerprintStrands
-            features={features}
-            width={width}
-            height={HEIGHT}
-            rmsMax={rmsMax}
-            centroidMax={centroidMax}
-            currentTime={currentTime}
-          />
-        )}
-      </div>
-
-      <div className="mt-4 flex gap-5">
-        <LegendItem className="bg-violet-500" label="Energy" />
-        <LegendItem className="bg-cyan-500" label="Brightness" />
-        <LegendDot label="Beats" />
-      </div>
+    <div ref={containerRef} className="w-full contain-inline-size" style={{ height: HEIGHT }}>
+      {width > 0 && (
+        <FingerprintStrands
+          features={features}
+          width={width}
+          height={HEIGHT}
+          rmsMax={rmsMax}
+          centroidMax={centroidMax}
+          currentTime={currentTime}
+          // Hidden at 0:00: a line parked on the left edge reads as an axis.
+          showPlayhead={currentTime > 0}
+          variant="instrument"
+        />
+      )}
     </div>
   );
 }
