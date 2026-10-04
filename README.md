@@ -1,146 +1,156 @@
-# Song DNA
+# SongDNA
 
-SongDNA measures audio and draws what it measured. The app has three pages: a **Home** page that introduces the idea through one real library track, a **Library** of precomputed tracks you can browse, search, preview and select as Song A / Song B, and **Compare**, where the two selected library tracks (or two uploaded songs) are shown on a shared scale, with independent playback and rule-based findings.
+**SongDNA measures songs and draws what it measured: a whole-track Song Fingerprint, a time-based Song DNA, and side-by-side comparison with findings you can trace back to the numbers.**
 
-It has three distinct layers:
+SongDNA is a local audio-analysis app built with Python (FastAPI, NumPy, librosa) and React. Every visual property maps to a real measurement: there is no machine learning, no similarity score and no guessing at genre or mood. Explore a small library of tracks, or analyse your own audio, and compare any two on one shared scale.
 
-- **Song Fingerprint** — a whole-track identity summary with no time axis, drawn from where the track sits in chroma entropy × spectral centroid space. It is an identity mark, not a unique identifier, and not a genre, mood, quality or similarity score.
-- **Song DNA** — how the track changes over time: RMS energy and spectral centroid averaged into 40 display segments, with beat markers. On Home every track shares one library-wide scale.
-- **Comparison** — two tracks on the same scale. Compare adds measured, rule-based findings. There is no overall similarity score and no machine learning.
+## What it does
 
-This README describes what's actually built right now. For the longer-term concept and future milestones, see [`PROJECT_CONTEXT.md`](PROJECT_CONTEXT.md).
+| Layer | What it shows |
+|---|---|
+| **Song Fingerprint** | The whole track as one mark, with no time axis: where its sound spends its time, from tonal to spread across the 12 pitch classes and from dark to bright. An identity mark, not a unique identifier. |
+| **Song DNA** | How the track changes over time: energy (loudness) as solid bars rising, brightness as open bars hanging, detected beats as ticks along the top. Playable, with a playhead. |
+| **Comparison** | Two tracks on one shared scale, with four plain-language findings (energy, dynamic range, energy trend, brightness) produced by fixed, documented rules. |
 
-## What's implemented
-- **App shell and routing** — a sidebar layout (React Router) with Home (`/`), Library and Compare pages; any other URL redirects to `/`.
-- **Home page** — a short introduction built from real library data, in figures. The selected track (Dev Sweep by default) drives every figure; choosing a row in the numbered library index changes it.
-  - **Intro** — what the Song Fingerprint and Song DNA each show, with links to the Library and to Compare for your own audio.
-  - **Fig. 1 Song Fingerprint** beside the **library index** — the selected track's 220 px fingerprint, labelled only at its edges (bright/dark, tonal/spread), with its track, duration and voiced-frame count. Each index row shows the track's 52 px fingerprint, title, description and duration.
-  - **Fig. 2 Song DNA** — the selected track's energy and brightness over time. It can be played, and moving across it (pointer, or arrow keys once focused) reads the averaged energy and brightness of that slice; clicking or pressing Enter moves playback there. The shared scale's ceilings are labelled beside the chart.
-  - **Fig. 3 Comparison** — the selected track (A) against a second track (B, chosen from a list) on the same scale, each with its fingerprint and DNA strip. "Open in Compare" loads the pair there; Home itself shows no findings.
-  - **How it's measured** — a short methodology for each figure.
+The app has three pages: **Home** introduces both drawings through one library track, **Library** lets you browse, search, preview and pick two tracks, and **Compare** shows the pair with playback and findings.
 
-  Every DNA strip on Home uses one shared scale across the whole library (the same rules as Compare: true RMS maximum, 95th-percentile centroid), so heights compare directly. Home and Compare share one neutral-ink style: energy as solid bars rising, brightness as open bars hanging, beats as ticks, with an ochre playhead (and, on Home, an ochre reading band). Home loads static library files only and needs no backend. Tempo is shown as an estimate, and the tracks are labelled as synthetic test tracks.
-- **Library page** — browses a static, precomputed track library served from `frontend/public/library/` (no backend needed). Tracks can be searched and filtered by genre, previewed with audio playback, and selected as Song A / Song B. Each card shows the track's 52 px **Song Fingerprint** (below). `library.json` still carries the older 48-segment DNA `preview` for each track, but cards no longer display it. The current library audio is synthetic placeholder tracks (`scripts/generate_dev_tracks.py`); features are precomputed by `scripts/build_library.py`.
-- **Compare page** — Song A stacked above Song B, each in a hairline-separated section, in the same neutral style as Home. One legend (energy, brightness, beats) and one line stating the pair's shared scale sit above both songs, with Findings below them.
-  - **Each slot** — an empty slot shows a click-to-choose upload area (MP3, WAV, FLAC or OGG). A loaded slot shows its 52 px Song Fingerprint (library tracks only), an ink A/B badge, the title, duration, **Replace…** to upload a different file, and Play/Pause.
-  - **Uploads** — each upload is analysed by the local backend (`POST /analyze`) and shown under the name of the file you chose; the backend's own saved copy and path are never shown as the title. Uploads have no Song Fingerprint, and the slot says fingerprints are available for library tracks only.
-  - **Scale** — Compare's scale covers just the pair on screen, so the same two tracks can draw at different heights than on Home, whose scale spans the whole library.
-- **Song Fingerprint (E1B1/1)** — a whole-track identity mark, separate from the Song DNA timeline: Song DNA shows how a track changes over time, the fingerprint shows where it spends its time overall. Every frame at or above −60 dBFS is placed by **chroma entropy** (x: 0 = energy in one pitch class, 1 = spread evenly over all 12) and **log2 spectral centroid** (y: 50 Hz to 11,025 Hz, brighter higher). Frames outside that domain are dropped, not clipped. The blurred histogram is divided by the track's total frame count, so silence reduces it rather than being ignored. It is drawn as ridge lines (the "B1" renderer) at two separate line spacings: a 220 px hero and a 52 px thumbnail, which is its own tracing rather than a scaled hero. The measurement and renderer (`src/song_dna/song_fingerprint/`) reproduce the validated research implementation exactly. It is not a unique identifier and makes no claims about genre, mood, quality or similarity. A track with no voiced frames (e.g. all silent) gets no fingerprint, and its card says so. Library cards, the Home index, Home's Fig. 3 and Compare's library tracks show the thumbnail, and Home's Fig. 1 loads the hero on demand. Fingerprints are generated only for the library: `/analyze` doesn't produce one, so uploads never show one.
-- **Library selection → Compare** — when Song A and Song B are both selected in the Library, Compare opens with those tracks already loaded from their precomputed features and library audio (no upload or re-analysis). Uploading a file into either slot replaces that track. Without two selected tracks, both slots start empty for uploads. The selection lives in memory only, so a page refresh returns Compare to the upload flow.
-- **RMS energy** — computed frame-by-frame with a manual numpy implementation (`src/song_dna/rms.py`), not a library call. Measures loudness over time.
-- **Spectral centroid** — computed via `librosa.feature.spectral_centroid`. Measures the "brightness" (weighted average frequency) of the sound at each moment, independent of loudness.
-- **Beat detection** — computed via `librosa.beat.beat_track`. Extracts the timestamp of each detected beat, shown as short ticks along the top of each song's DNA strip on Home and Compare (positioned by time, so they stay accurate regardless of how many visual segments the fingerprint is drawn with).
-- **Segmented dual-strand fingerprint visualization** — each song's RMS and spectral centroid are downsampled into 40 discrete bar segments (averaged, for display only — the underlying analysis data is untouched) and drawn as two mirrored strands around a center axis: energy bars extend upward, brightness bars extend downward. When two songs are loaded, both are scaled against a *shared* ceiling computed across both songs, so their relative loudness/brightness is visually comparable rather than each song being normalized against only its own peak. RMS uses the shared true maximum; spectral centroid uses the shared 95th percentile instead, since real audio has rare outlier frames (e.g. a single transient click) that would otherwise flatten the entire visual scale for both songs.
-- **Playback** — each Compare slot plays independently, with Play/Pause and a playhead synced to the actual playback position (the same playback hook as Home's Fig. 2). The button returns to Play when a track ends, and replacing a track resets playback for the new one.
-- **Unique filenames on upload** — the backend saves each upload under a generated UUID-based filename (extension preserved), so two files with the same original name never overwrite each other on disk. The page still shows the original file name.
-- **Error handling** — errors appear as plain-language alerts, never a raw stack trace or a stuck "Analysing..." state. A file the backend can't analyse ("Couldn't analyse this file…") is reported differently from a backend that can't be reached ("Couldn't reach the local analysis server…"), and the same distinction applies to findings.
-- **Rule-based findings** — once both Compare slots have a song, the frontend sends both songs' RMS and centroid arrays to `POST /compare` on the local backend. It returns four plain-language findings, labelled Energy, Dynamic range, Energy trend and Brightness (`src/song_dna/findings.py`). Each comes from measured numbers and fixed thresholds; small differences are reported as "similar". There is no ML and no overall similarity score. Findings belong to the exact pair on screen, so replacing either song never leaves the previous pair's findings showing.
-- **Light/dark theme** — dark by default, with a light/dark toggle in the sidebar footer. The choice is saved in `localStorage` (`songdna-theme`); it does not follow the OS setting.
-- **Component-based UI** — built with shadcn/ui components (e.g. Card, Badge, Alert, Button, Input, Sidebar, Skeleton) rather than raw HTML controls and inline styles.
+## Screenshots
+
+![Home: the selected track's Song Fingerprint beside the numbered library index](docs/screenshots/home-fingerprint.png)
+*Home, Fig. 1: Dev Sweep's Song Fingerprint beside the library index that chooses it.*
+
+![Home: interactive Song DNA during playback, reading one slice](docs/screenshots/home-dna.png)
+*Home, Fig. 2: Song DNA during playback. Pointing at a slice reads its measured energy and brightness.*
+
+![Compare: two library tracks on one scale, with findings](docs/screenshots/compare-library.png)
+*Compare: two library tracks on a shared scale, with rule-based findings.*
+
+![Compare: a library track beside an uploaded file](docs/screenshots/compare-upload.png)
+*Compare with an upload: shown under its own file name, and honest that fingerprints are library-only.*
+
+## How it works
+
+**Song DNA** is measured from the audio, then simplified only for display.
+
+- **Energy** is RMS loudness per frame (2048-sample frames, 512-sample hop, about 23 ms apart), written by hand in NumPy rather than taken from a library call.
+- **Brightness** is the spectral centroid per frame (`librosa.feature.spectral_centroid`).
+- **Beats** come from `librosa.beat.beat_track`, run on an 11,025 Hz copy for speed. Tempo is shown only as an estimate.
+- **Display:** each series is averaged into 40 segments. The analysis data itself is never changed.
+- **Shared scales:** songs that are compared share one ceiling. Energy uses the true maximum; brightness uses the 95th percentile, so a single bright transient can't flatten every other bar. Home uses one scale for the whole library; Compare uses one scale for the pair on screen. The actual ceilings are printed beside the charts.
+
+**Song Fingerprint (version E1B1/1)** comes from a separate research study and is reproduced exactly.
+
+- Every frame at or above −60 dBFS is placed by its chroma entropy (x: one pitch class → all twelve) and log spectral centroid (y: 50 Hz to 11,025 Hz).
+- The frames form a blurred density, divided by the track's total frame count so that silence counts.
+- The density is drawn as evenly spaced ridge lines: a 220 px hero and a separately traced 52 px thumbnail.
+- All parameters are frozen and versioned. Fingerprints are generated for library tracks when the library is built; uploads don't get one.
+
+**Findings** are deterministic. `POST /compare` compares the two songs' mean energy, energy spread, first-half versus second-half energy, and mean brightness. For the averages and the spread, differences under 10% are reported as "similar", 10–30% as "somewhat" and above that as "notably"; the trend counts as building or fading beyond ±15%. The thresholds and their reasoning are in [`src/song_dna/findings.py`](src/song_dna/findings.py).
+
+## Engineering highlights
+
+- **Research to production, verified bit for bit.** The fingerprint measurement and renderer were ported from the research code with the same arithmetic order. Parity tests compare the density (by a SHA-256 hash of its raw bytes), the frame counts and both rendered paths against a fixture produced by the research code itself. Each library build records its identity (parameter hash, corpus hash, reference density), and the frontend refuses fingerprint files from a different build.
+- **Pair-safe async findings.** Each `/compare` response is stored with the exact A/B pair it answers and shown only while that pair is on screen. Each slot's loads are numbered, so a slow library load can't overwrite a newer upload. Replacing a song never leaves the previous pair's findings visible.
+- **Honest, outlier-resistant visualisation.** Comparisons use shared scales so heights compare directly, with a percentile ceiling for brightness. Ceilings are labelled, and the display-only averaging never touches the measured data.
+- **A CI guard against a real failure mode.** A past import bug passed the tests but broke the server, because pytest and uvicorn find the package from different roots. CI now boots the API exactly the way it's run and checks that it responds.
+- **Accessible interactive chart.** Home's Song DNA works as a keyboard slider: arrow keys read slices, Enter moves playback there, and every reading is also available as text.
+- **Clear error states.** "The analysis server isn't running" is reported separately from "this file couldn't be analysed". Server error details are never shown, and uploads keep the name of the file you chose.
 
 ## Tech stack
 
-- **Backend:** Python, FastAPI, served with Uvicorn
-- **Audio analysis:** numpy (manual RMS), librosa (spectral centroid, audio loading), scipy
-- **Frontend:** React (Vite) with React Router, styled with Tailwind CSS and shadcn/ui
-- **Testing:** pytest (backend), vitest (frontend)
+- **Backend:** Python 3.11, FastAPI, Uvicorn
+- **Audio analysis:** NumPy, librosa, SciPy, soundfile
+- **Frontend:** React 19, Vite, React Router, Tailwind CSS v4, shadcn/ui, hand-built SVG visualisations
+- **Testing and CI:** pytest, Vitest, ESLint, GitHub Actions
 
-## Running it locally
+## Testing and CI
 
-Two servers need to run at once: the FastAPI backend and the Vite frontend dev server.
+- **Backend:** 115 pytest tests covering RMS, feature extraction, findings rules, the API, the library build, and the fingerprint measurement, renderer and research parity.
+  - Five parity tests compare against the research output bit for bit, so they run only when the platform and library versions match the research environment and are skipped elsewhere.
+- **Frontend:** 240 Vitest tests covering the pure logic (scaling, bucketing, layout, selection, Compare state and result pairing, request error handling, library and fingerprint loading).
+- **CI** ([`.github/workflows/test.yml`](.github/workflows/test.yml)), on every pull request and push to `dev` and `main`:
+  - backend tests;
+  - a real server boot check;
+  - frontend tests;
+  - a production build.
+- Lint runs locally.
 
-### Backend
+## Running locally
 
-From the repository root, in PowerShell:
+Two servers run side by side: the FastAPI backend and the Vite frontend. Home and the Library work without the backend; uploads and Compare findings need it.
+
+**Backend** (Python 3.11, from the repository root, in PowerShell):
 
 ```powershell
 python -m venv venv
 .\venv\Scripts\python.exe -m pip install -r requirements.txt
 .\venv\Scripts\python.exe -m uvicorn song_dna.api:app --app-dir src --reload
+.\venv\Scripts\python.exe -m pytest
 ```
 
-This serves the API at `http://127.0.0.1:8000`. Use `song_dna.api:app` with `--app-dir src`, not `src.song_dna.api:app`: the backend imports itself as `song_dna`, so the `src.` form fails to import. The backend is only needed for the Compare page (uploads and findings); the Library page works without it.
+The API runs at `http://127.0.0.1:8000`. Start it with `song_dna.api:app` and `--app-dir src`, not `src.song_dna.api:app`, which fails to import.
 
-To run the backend tests:
-
-```powershell
-.\venv\Scripts\python.exe -m pytest -v
-```
-
-### Frontend
-
-In a separate terminal, from the `frontend` folder:
+**Frontend** (Node 22, in a second terminal):
 
 ```powershell
 cd frontend
 npm ci
-npm run dev
-```
-
-Open `http://localhost:5173` in your browser. The frontend calls the backend at `http://127.0.0.1:8000` by default; set `VITE_API_URL` to override it.
-
-To run the frontend tests, lint and production build:
-
-```powershell
+npm run dev        # http://localhost:5173
 npm test
 npm run lint
 npm run build
 ```
 
-### Library
+The frontend calls the backend at `http://127.0.0.1:8000`; set `VITE_API_URL` to change it. See [`frontend/README.md`](frontend/README.md).
 
-The library's inputs are `frontend/public/library/metadata.json` and the audio in `frontend/public/library/audio/`. Don't edit the generated `library.json` or `features/*.json` by hand; rebuild them from the repository root:
+**Uploads** accept MP3, WAV, FLAC or OGG.
+
+**Rebuilding the library.** The inputs are `frontend/public/library/metadata.json` and the audio in `frontend/public/library/audio/`. Everything else in that folder is generated, so don't edit it by hand. From the repository root:
 
 ```powershell
-.\venv\Scripts\python.exe scripts\build_library.py
+.\venv\Scripts\python.exe scripts\build_library.py         # features, fingerprints, library.json
+.\venv\Scripts\python.exe scripts\generate_dev_tracks.py   # regenerate the synthetic audio (then rebuild)
 ```
 
-`scripts\generate_dev_tracks.py` regenerates the synthetic placeholder audio; rebuild the library afterwards.
+Each build redraws every fingerprint from one shared reference density, so adding or changing a track can change the others.
 
-The build also writes the Song Fingerprints: `fingerprints/thumbs.json` (all 52 px thumbnails) and `fingerprints/<id>.json` (each 220 px hero path with its audit metadata). `library.json` holds only a small `song_fingerprint` summary and, per track, a reference to its fingerprint file, or `null` with the reason there is none. The fingerprint rendering reference (`dref`) is 1.2 × the densest histogram cell across the current library. Every build recomputes it and redraws every fingerprint, so adding or changing a track can change the others. `corpus_id` (a hash of every track's id and audio) records which audio a build came from, and `params_hash` records the frozen parameters. This is the policy for the fixed demo library only, not yet for uploads or a growing library.
+## Current limitations
 
-## AI tooling (optional)
+- **Local only:** single user, runs on localhost, with no deployment or accounts.
+- **Synthetic library:** the five library tracks are synthetic test audio generated for development.
+- **No persistence:** uploads are analysed fresh each time and lost on refresh, and uploaded files are never cleaned up from `data/audio/`.
+- **No upload fingerprints:** only library tracks have a Song Fingerprint.
+- **No overall similarity score**, and no time alignment between songs of different tempo or length.
+- **Click-to-choose uploads:** the upload area looks like a dropzone, but drag and drop isn't wired up.
+- **Independent playback:** A and B can play at the same time.
+- **Limited error recovery:** there's no retry button, and a failed replacement upload clears that slot.
+- **Unit tests only on the frontend:** pure logic is tested; rendering and the upload flow were verified by hand in a browser.
 
-Agent instructions live in `AGENTS.md` (shared by all coding agents); `CLAUDE.md` imports it
-and adds Claude Code specifics. Project permissions for Claude Code are in
-`.claude/settings.json`.
+## Development process
 
-For Claude Code, `/feature <request>` runs the project's feature workflow
-(`.claude/skills/feature/`, tracked in git): plan, implement, test, verify UI changes in a
-browser with `playwright-cli`, self-review, and report. It never fetches, switches branches,
-stages, commits, pushes or opens PRs; those stay manual.
+SongDNA was built in small steps: one branch and one pull request per change, merged into `dev`, with CI running on every pull request.
 
-Three agent skills are used: `impeccable`, `playwright-cli` and `gh-fix-ci`. The installed copies
-(`.agents/skills/`, `.claude/skills/`) are git-ignored; `skills-lock.json` records where each
-came from. To restore them after cloning:
+AI coding tools were used inside a controlled workflow:
+- shared agent instructions ([`AGENTS.md`](AGENTS.md)) set the product rules and verification steps;
+- branches, commits and merges stayed manual;
+- UI changes were checked in a real browser;
+- the Song Fingerprint port got an independent review before merging;
+- CI checks ran on every pull request.
+
+[`PROJECT_CONTEXT.md`](PROJECT_CONTEXT.md) holds the original concept and longer-term ideas; [`PRODUCT.md`](PRODUCT.md) holds the product and design commitments.
+
+### AI tooling setup
+
+`CLAUDE.md` imports `AGENTS.md` and adds Claude Code specifics. Project permissions are in `.claude/settings.json`. `/feature <request>` runs the project's feature workflow (`.claude/skills/feature/`): plan, implement, test, verify in a browser, self-review and report. It never stages, commits, pushes or opens pull requests.
+
+The installed agent skills (`impeccable`, `playwright-cli`, `gh-fix-ci`) are git-ignored; `skills-lock.json` records where each came from. Restore them with:
 
 ```powershell
 npx skills experimental_install
 ```
 
-Limits to be aware of:
+`skills-lock.json` stores a source and a content hash, not a pinned revision, so a restore may fetch a newer copy. `playwright-cli` also needs the CLI itself (`npm install -g @playwright/cli`, developed against 0.1.21).
 
-- `skills-lock.json` records each skill's source repository and a content hash, **not** an
-  upstream revision. A restore fetches whatever the source currently contains, so it may differ
-  from the locked copy; the hash only shows that it changed. `experimental_install` is marked
-  experimental by the skills CLI.
-- The `impeccable` skill downloads a helper binary the first time it runs. The lock hash does
-  not cover that binary.
-- The `playwright-cli` skill needs the CLI itself, installed globally and not pinned by this
-  repo: `npm install -g @playwright/cli` (developed against 0.1.21).
+## License
 
-## Planned / not yet built
-
-This is an honest list of what's missing, not a roadmap promise:
-
-- **No persistence for uploads.** Every upload is re-analyzed from scratch and its results live only in React state, lost on page refresh (the uploaded file itself stays in `data/audio/`). Only the static library has precomputed features. `PROJECT_CONTEXT.md` describes a planned SQLite + per-song feature-file architecture; that hasn't been built.
-- **No overall similarity score.** Findings describe specific measured differences; there's no single similarity number and no section-level matching.
-- **Compare supports exactly two songs**, and the Library selection isn't persisted across page refreshes.
-- **Library audio is placeholder.** The current library tracks are synthetic, generated for development; no curated real tracks have been added yet.
-- **No timeline alignment.** If two songs have different tempos or lengths, their fingerprints are not time-warped or aligned to each other.
-- **No Song Fingerprints for uploads.** Only library tracks have one; `/analyze` doesn't generate one.
-- **Error recovery is limited.** There's no retry button: after starting the backend, you re-choose the file, or reopen or change the pair to get findings again. A failed replacement upload clears that slot rather than keeping the previous song.
-- **Uploaded files are never cleaned up.** Every upload, including ones that fail to analyse, stays in `data/audio/` under its UUID name. Choosing one of those saved copies to upload again shows that UUID as its name, since the page can only show the chosen file's name.
-- **Playback isn't coordinated between slots.** Song A and Song B can play at the same time; starting one doesn't pause the other.
-- **No automated frontend component tests.** The frontend test suite covers pure logic modules only (scaling, bucketing, fingerprint layout, beat thinning, selection, track filtering, formatting, Compare slot load state, Compare result pairing, upload/compare requests and their error messages, library loading, Song Fingerprint parsing and hero load state, theme, Home specimen statistics); there's no automated testing of the upload flow, rendering, or playback behavior in a browser.
-- **The empty upload area looks like a dropzone but isn't one yet.** It's styled to look drag-and-drop-able, but only click-to-choose is actually wired up — there's no `drop`/`dragover` handling, so dragging a file onto it currently does nothing.
+[MIT](LICENSE)
