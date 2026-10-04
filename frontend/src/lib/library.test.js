@@ -8,6 +8,7 @@ import {
   parseTrackFeatures,
   resolveFeatureLoad,
 } from "./library";
+import { LIBRARY_LOAD_ID, initialPanelState, panelLoadReducer } from "../panelLoad";
 
 const goodTrack = {
   id: "dev-pulse",
@@ -267,12 +268,34 @@ const goodFeatures = {
 };
 
 describe("parseTrackFeatures", () => {
-  it("keeps the measured features and adds the library audio URL and title", () => {
-    expect(parseTrackFeatures(goodTrack, goodFeatures)).toEqual({
+  it("keeps the measured features and adds the library audio URL, title and fingerprint", () => {
+    const fingerprint = { status: "available", path: "M0 0L1 1", viewBox: "0 0 52 52" };
+    expect(parseTrackFeatures({ ...goodTrack, fingerprint }, goodFeatures)).toEqual({
       ...goodFeatures,
       audio_url: "/library/audio/dev-pulse.mp3",
       title: "Dev Pulse",
+      fingerprint,
     });
+  });
+
+  it("carries an unavailable fingerprint through unchanged", () => {
+    const fingerprint = { status: "unavailable", reason: "no_voiced_frames" };
+    expect(parseTrackFeatures({ ...goodTrack, fingerprint }, goodFeatures).fingerprint).toBe(
+      fingerprint
+    );
+  });
+
+  it("marks a track with no fingerprint field as unavailable, never as an upload", () => {
+    expect(parseTrackFeatures(goodTrack, goodFeatures).fingerprint).toEqual({
+      status: "unavailable",
+      reason: "missing",
+    });
+  });
+
+  it("takes the fingerprint from the track, not from the feature file", () => {
+    const stray = { status: "available", path: "M9 9L8 8", viewBox: "0 0 52 52" };
+    const parsed = parseTrackFeatures(goodTrack, { ...goodFeatures, fingerprint: stray });
+    expect(parsed.fingerprint).toEqual({ status: "unavailable", reason: "missing" });
   });
 
   it("accepts a track with no detected beats", () => {
@@ -315,6 +338,23 @@ describe("fetchTrackFeatures", () => {
     const features = await fetchTrackFeatures(goodTrack);
     expect(fetch).toHaveBeenCalledWith("/library/features/dev-pulse.json");
     expect(features.rms_energy).toEqual(goodFeatures.rms_energy);
+  });
+
+  it("loads features whose fingerprint an upload into the same slot replaces", async () => {
+    const fingerprint = { status: "available", path: "M0 0L1 1", viewBox: "0 0 52 52" };
+    stubFetch({ ok: true, status: 200, json: async () => goodFeatures });
+    const library = await fetchTrackFeatures({ ...goodTrack, fingerprint });
+
+    // A Compare slot: the library load, then an upload (an /analyze response,
+    // which has no fingerprint) replacing it.
+    const upload = { ...goodFeatures, file_path: "data/audio/x.wav", audio_url: "/audio/x.wav" };
+    let slot = initialPanelState(goodTrack);
+    slot = panelLoadReducer(slot, { type: "succeed", id: LIBRARY_LOAD_ID, features: library });
+    expect(slot.features.fingerprint).toBe(fingerprint);
+    slot = panelLoadReducer(slot, { type: "start", id: 2, message: "Analyzing..." });
+    expect(slot.features.fingerprint).toBe(fingerprint);
+    slot = panelLoadReducer(slot, { type: "succeed", id: 2, features: upload });
+    expect(slot.features.fingerprint).toBeUndefined();
   });
 
   it("turns HTTP errors, non-JSON bodies and network failures into a readable error", async () => {

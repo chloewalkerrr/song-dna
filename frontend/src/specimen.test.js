@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   formatClock,
   formatHz,
+  formatRms,
   getLibraryScale,
   measurementInterval,
   readSlice,
@@ -61,6 +62,11 @@ describe("formatting", () => {
   it("formats hertz as whole numbers with separators", () => {
     expect(formatHz(1239.6)).toBe("1,240 Hz");
     expect(formatHz(87.2)).toBe("87 Hz");
+  });
+
+  it("formats RMS to three decimals", () => {
+    expect(formatRms(0.34149)).toBe("0.341 RMS");
+    expect(formatRms(0.1)).toBe("0.100 RMS");
   });
 
   it("formats a clock time to tenths without rolling over to :60", () => {

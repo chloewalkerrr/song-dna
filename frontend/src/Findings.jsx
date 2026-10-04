@@ -1,9 +1,16 @@
 import { useEffect, useState } from "react";
-import { Sparkles } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { API_BASE } from "@/lib/config";
+import { COMPARE_FAILED, compareSongs, errorCopy } from "@/lib/analysis";
 import { resultForPair } from "@/compareResult";
+
+// Short labels for the categories /compare returns (src/song_dna/findings.py,
+// always in this order). An unknown category falls back to its raw name.
+const CATEGORY_LABELS = {
+  average_energy: "Energy",
+  dynamic_range: "Dynamic range",
+  energy_trend: "Energy trend",
+  brightness: "Brightness",
+};
 
 // Findings only make sense once both songs are analyzed, so this always
 // renders with both feature sets already present - App only mounts it
@@ -21,36 +28,19 @@ function Findings({ songAFeatures, songBFeatures }) {
   useEffect(() => {
     let cancelled = false;
 
-    fetch(`${API_BASE}/compare`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        song_a: {
-          rms_energy: songAFeatures.rms_energy,
-          spectral_centroid: songAFeatures.spectral_centroid,
-        },
-        song_b: {
-          rms_energy: songBFeatures.rms_energy,
-          spectral_centroid: songBFeatures.spectral_centroid,
-        },
-      }),
-    })
-      .then((response) => {
-        if (!response.ok) throw new Error("compare request failed");
-        return response.json();
-      })
+    compareSongs(songAFeatures, songBFeatures)
       .then((data) => {
         if (!cancelled) {
           setResult({ a: songAFeatures, b: songBFeatures, findings: data.findings, error: null });
         }
       })
-      .catch(() => {
+      .catch((compareError) => {
         if (!cancelled) {
           setResult({
             a: songAFeatures,
             b: songBFeatures,
             findings: null,
-            error: "Couldn't generate findings for these songs.",
+            error: errorCopy(compareError, COMPARE_FAILED),
           });
         }
       });
@@ -61,35 +51,39 @@ function Findings({ songAFeatures, songBFeatures }) {
   }, [songAFeatures, songBFeatures]);
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center gap-2">
-        <div className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
-          <Sparkles className="size-4" />
-        </div>
-        <CardTitle>Findings</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        {loading && (
-          <p className="font-mono text-sm text-muted-foreground">Comparing...</p>
-        )}
+    <section aria-labelledby="findings-heading" className="border-t pt-5">
+      <h2 id="findings-heading" className="text-lg font-semibold tracking-tight">
+        Findings
+      </h2>
+      <p className="mt-1 mb-4 max-w-prose text-sm text-muted-foreground">
+        Rule-based, from the measured energy and brightness of both songs. Small differences
+        are reported as similar.
+      </p>
 
-        {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
+      {loading && <p className="font-mono text-sm text-muted-foreground">Comparing...</p>}
 
-        {findings && (
-          <ul className="flex flex-col gap-2">
-            {findings.map((finding) => (
-              <li key={finding.category} className="text-sm text-foreground">
-                {finding.text}
-              </li>
-            ))}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {findings && (
+        <ol className="border-t">
+          {findings.map((finding) => (
+            <li
+              key={finding.category}
+              className="grid gap-x-6 gap-y-0.5 border-b py-2.5 text-sm sm:grid-cols-[8rem_minmax(0,1fr)]"
+            >
+              <span className="text-muted-foreground">
+                {CATEGORY_LABELS[finding.category] ?? finding.category}
+              </span>
+              <span>{finding.text}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
   );
 }
 

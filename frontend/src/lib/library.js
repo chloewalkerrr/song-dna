@@ -122,12 +122,21 @@ function hasValidFeatures(data) {
 // Validates a track's precomputed feature file and shapes it like an /analyze
 // response, so SongPanel can treat library and uploaded songs the same way.
 // `audio_url` points at the static library audio; `title` replaces the upload path.
+// `fingerprint` is the track's Song Fingerprint (see attachFingerprints),
+// always present on library features. /analyze responses never have one, so
+// a slot's fingerprint belongs to whatever features it currently shows: an
+// upload that replaces a library track replaces its fingerprint too.
 export function parseTrackFeatures(track, data) {
   if (!hasValidFeatures(data)) {
     throw new Error(`The analysis for "${track.title}" isn't in the expected format.`);
   }
 
-  return { ...data, audio_url: libraryUrl(track.audio), title: track.title };
+  return {
+    ...data,
+    audio_url: libraryUrl(track.audio),
+    title: track.title,
+    fingerprint: track.fingerprint ?? { status: "unavailable", reason: UNAVAILABLE.missing },
+  };
 }
 
 // Fetches one library track's full features (the same dev-server caveat as

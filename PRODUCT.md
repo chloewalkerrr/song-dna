@@ -62,7 +62,9 @@ quality. The real data and its visualisation are the interesting part, not styli
     track, Fig. 2 Song DNA (interactive, playable), Fig. 3 a same-scale comparison
     preview that opens Compare, and a short methodology.
   - Library: browse, search, preview, pick Song A / Song B.
-  - Compare: two Song DNA charts on a shared scale, playback, findings.
+  - Compare: Song A above Song B, each with its Song Fingerprint (library tracks
+    only), playback and Song DNA on the pair's shared scale, then rule-based
+    findings. Library tracks or uploads (MP3, WAV, FLAC, OGG).
 
 ## Capabilities and Constraints
 
@@ -70,7 +72,7 @@ quality. The real data and its visualisation are the interesting part, not styli
   (frame-aligned), beat times, an estimated tempo, and duration.
 - Measured per library track for the Song Fingerprint (at library build time):
   per-frame chroma entropy, log spectral centroid and loudness. Uploads have no
-  fingerprint yet.
+  fingerprint yet, and Compare must never suggest that they do.
 - Detected tempo is an estimate and can be wrong on the placeholder audio; present it
   as an estimate.
 - Scales: Compare shares them across its two songs; Home shares one scale across
@@ -99,12 +101,12 @@ Confirmed by the owner as binding:
   - The base is neutral black and white. One warm accent, a restrained ochre, marks
     the current or interaction state (current track, playhead, the slice being
     read). It is never a data series.
-  - Home uses no violet, cyan or blue. Song DNA there is drawn in neutral ink and
-    told apart by form: energy as solid bars rising, brightness as open bars hanging,
-    beats as ticks. A and B are told apart by solid and outlined letter badges.
-  - Compare and Library still use the original colours: violet for energy and cyan
-    for brightness in Compare's charts, and violet / blue for Song A / Song B
-    selection. A/B identity comes from explicit markers or labels, never from
+  - Home and Compare use no violet, cyan or blue. Song DNA there is drawn in neutral
+    ink and told apart by form: energy as solid bars rising, brightness as open bars
+    hanging, beats as ticks. A and B are told apart by solid and outlined letter
+    badges, titles and Song Fingerprints.
+  - Library still uses the original selection colours: violet / blue for Song A /
+    Song B. A/B identity comes from explicit markers or labels, never from
     recolouring the data.
   - Song Fingerprints are always monochrome, including when a track is selected.
 - Typography: Geist for body, controls and UI text. Source Serif 4, at a restrained

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Pause, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import DnaKey from "@/components/DnaKey";
 import FingerprintStrands from "@/FingerprintStrands";
 import { SEGMENT_COUNT, getSegmentLayout } from "@/fingerprintLayout";
 import { formatDuration } from "@/format";
@@ -10,49 +11,27 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import {
   formatClock,
   formatHz,
+  formatRms,
   readSlice,
   sliceIndexAt,
   sliceSpan,
 } from "@/specimen";
 
-// Taller than Compare's 200px chart: on Home the figure is the page's main
+// Taller than Compare's 160px charts: on Home the figure is the page's main
 // visual. On phones it is shorter so the notes and readout stay close by.
 const FIGURE_HEIGHT = 240;
 const FIGURE_HEIGHT_MOBILE = 168;
-
-// Legend keys drawn like the figure's own marks (FingerprintStrands
-// "instrument") against the same centre line: energy rises from it as a solid
-// bar, brightness hangs below it as an open bar, and a beat is a short tick at
-// the top edge. They read in greyscale too.
-function Key({ kind }) {
-  return (
-    <svg aria-hidden="true" width="14" height="20" viewBox="0 0 14 20" className="shrink-0">
-      <line x1="0" y1="10" x2="14" y2="10" strokeWidth="1" className="stroke-foreground/30" />
-      {kind === "energy" && <rect x="4" y="1" width="6" height="9" className="fill-foreground" />}
-      {kind === "brightness" && (
-        <rect x="4.5" y="10.5" width="5" height="8" strokeWidth="1" className="fill-none stroke-foreground/75" />
-      )}
-      {kind === "beats" && (
-        <line x1="7" y1="0" x2="7" y2="6" strokeWidth="1.5" className="stroke-muted-foreground" />
-      )}
-    </svg>
-  );
-}
 
 function Note({ kind, label, children }) {
   return (
     <div>
       <dt className="flex items-center gap-2 text-sm font-medium">
-        <Key kind={kind} />
+        <DnaKey kind={kind} />
         {label}
       </dt>
       <dd className="mt-0.5 text-sm leading-snug text-muted-foreground">{children}</dd>
     </div>
   );
-}
-
-function formatRms(rms) {
-  return `${rms.toFixed(3)} RMS`;
 }
 
 function readoutText(slice) {
