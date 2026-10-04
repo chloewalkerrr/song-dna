@@ -231,4 +231,5 @@ data/
 
 # Machine-local agent tool config
 .claude/settings.local.json
-.impeccable/*.local.json
+# Impeccable design-tool output (critiques, surfaces, local config) stays local
+.impeccable/
