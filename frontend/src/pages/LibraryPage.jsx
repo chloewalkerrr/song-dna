@@ -50,7 +50,7 @@ function LibraryPage() {
         <div>
           <h1 className="mb-1 text-3xl font-semibold tracking-tight">Song library</h1>
           <p className="text-sm text-muted-foreground">
-            Choose two tracks to compare their audio fingerprints.
+            Choose two tracks to compare their Song DNA.
           </p>
         </div>
 
